@@ -1,0 +1,83 @@
+# PlutoLab — 本地开发环境
+# 启动: pnpm db:up         (= docker compose up -d)
+# 停止: pnpm db:down
+# 进入 psql: pnpm db:psql
+# Adminer:  http://localhost:8080  (System=PostgreSQL, Server=postgres, User=pluto, DB=pluto)
+
+name: plutolab
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: plutolab-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pluto}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-pluto}
+      # 仅在初始化时生效。再次启动若想换库必须删 volume 重来
+      POSTGRES_INITDB_ARGS: '--encoding=UTF-8 --locale=C'
+      TZ: Asia/Shanghai
+    ports:
+      - '127.0.0.1:5432:5432'   # 只绑 localhost，外网访问不了
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-pluto} -d ${POSTGRES_DB:-pluto}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - plutolab-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: plutolab-redis
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - 'yes'
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - allkeys-lru
+    ports:
+      - '127.0.0.1:6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - plutolab-net
+
+  adminer:
+    image: adminer:4-standalone
+    container_name: plutolab-adminer
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:8080:8080'
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: dracula        # 暗色主题，护眼
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - plutolab-net
+
+volumes:
+  postgres-data:
+    name: plutolab-postgres-data
+  redis-data:
+    name: plutolab-redis-data
+
+networks:
+  plutolab-net:
+    name: plutolab-net
+    driver: bridge

@@ -13,7 +13,14 @@
     "test": "turbo run test",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,yml,yaml}\"",
-    "clean": "turbo run clean && rm -rf node_modules .turbo"
+    "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:reset": "docker compose down -v && docker compose up -d",
+    "db:logs": "docker compose logs -f",
+    "db:psql": "docker compose exec postgres psql -U pluto -d pluto",
+    "db:redis": "docker compose exec redis redis-cli",
+    "db:status": "docker compose ps"
   },
   "devDependencies": {
     "prettier": "^3.3.3",
