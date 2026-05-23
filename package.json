@@ -1,0 +1,28 @@
+{
+  "name": "plutolab",
+  "version": "0.0.1",
+  "private": true,
+  "description": "PlutoLab — Your AI Workshop (求职作品集 + 自用 AI 全能工作台)",
+  "author": "pluto <wwwpluto731@gmail.com>",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,yml,yaml}\"",
+    "clean": "turbo run clean && rm -rf node_modules .turbo"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "turbo": "^2.3.3",
+    "typescript": "^5.6.3"
+  },
+  "packageManager": "pnpm@11.2.2",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=9"
+  }
+}
