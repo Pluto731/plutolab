@@ -32,8 +32,10 @@ coverage.xml
 # ─── Env files ──────────────────────────────
 .env
 .env.local
+.env.prod
 .env.*.local
 !.env.example
+!.env.prod.example
 
 # ─── IDE / Editor ───────────────────────────
 .vscode/*

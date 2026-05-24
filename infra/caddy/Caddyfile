@@ -1,0 +1,43 @@
+# PlutoLab — Caddy 反向代理 (Phase 0.6)
+# 当前: 用 IP 访问 (没域名), 不上 HTTPS
+# 升级路径: 把 :80 改成 your-domain.com, Caddy 自动 Let's Encrypt HTTPS, 无需任何其他改动
+
+:80 {
+	# 后端 API: 转发 /api/* 给 FastAPI
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	# Swagger / OpenAPI 暴露 (方便调试)
+	handle /docs {
+		reverse_proxy api:8000
+	}
+	handle /openapi.json {
+		reverse_proxy api:8000
+	}
+	handle /redoc {
+		reverse_proxy api:8000
+	}
+
+	# 前端: 其他所有路径走 Next.js
+	handle {
+		reverse_proxy web:3000
+	}
+
+	# 日志 (容器内, 用 docker logs 查看)
+	log {
+		output stdout
+		format console
+	}
+
+	# 安全头部
+	header {
+		# 防 clickjacking
+		X-Frame-Options "SAMEORIGIN"
+		# MIME sniffing 防护
+		X-Content-Type-Options "nosniff"
+		# 引用策略
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}

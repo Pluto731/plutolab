@@ -1,0 +1,122 @@
+# PlutoLab — 生产 docker compose (VPS 部署用)
+# 启动: docker compose -f docker-compose.prod.yml up -d --build
+# 与 dev (docker-compose.yml) 区别:
+#   - postgres/redis 不暴露 host port (只在 docker network 内)
+#   - 包含 web + api + caddy (反代)
+#   - 用 .env.prod 读环境变量
+
+name: plutolab-prod
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: plutolab-prod-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pluto}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_DB: ${POSTGRES_DB:-pluto}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+      TZ: Asia/Shanghai
+    volumes:
+      - postgres-prod-data:/var/lib/postgresql/data
+      - ./infra/docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pluto} -d ${POSTGRES_DB:-pluto}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - plutolab-prod
+
+  redis:
+    image: redis:7-alpine
+    container_name: plutolab-prod-redis
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - 128mb
+      - --maxmemory-policy
+      - allkeys-lru
+    volumes:
+      - redis-prod-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - plutolab-prod
+
+  api:
+    image: plutolab-api:latest
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.api
+    container_name: plutolab-prod-api
+    restart: unless-stopped
+    environment:
+      ENV: production
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-pluto}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-pluto}
+      REDIS_URL: redis://redis:6379/0
+      CORS_ORIGINS: '["http://${PUBLIC_HOST:-localhost}"]'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - plutolab-prod
+
+  web:
+    image: plutolab-web:latest
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_URL: /api
+    container_name: plutolab-prod-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+    depends_on:
+      - api
+    networks:
+      - plutolab-prod
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: plutolab-prod-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      # 暂不开 :443 (没域名 + 自签证书没意义)
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-prod-data:/data
+      - caddy-prod-config:/config
+    depends_on:
+      - web
+      - api
+    networks:
+      - plutolab-prod
+
+volumes:
+  postgres-prod-data:
+    name: plutolab-prod-postgres-data
+  redis-prod-data:
+    name: plutolab-prod-redis-data
+  caddy-prod-data:
+    name: plutolab-prod-caddy-data
+  caddy-prod-config:
+    name: plutolab-prod-caddy-config
+
+networks:
+  plutolab-prod:
+    name: plutolab-prod-net
+    driver: bridge

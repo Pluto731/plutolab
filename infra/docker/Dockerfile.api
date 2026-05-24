@@ -1,0 +1,39 @@
+# PlutoLab API — 多阶段构建
+# Stage 1: 装依赖
+FROM python:3.11-slim AS builder
+
+ENV UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1 \
+    UV_PYTHON_DOWNLOADS=never \
+    PYTHONUNBUFFERED=1
+
+RUN pip install --no-cache-dir uv==0.9.17
+
+WORKDIR /app
+COPY apps/api/pyproject.toml apps/api/uv.lock apps/api/README.md ./
+RUN uv sync --frozen --no-install-project --no-dev
+
+COPY apps/api/src ./src
+COPY apps/api/alembic ./alembic
+COPY apps/api/alembic.ini ./
+
+RUN uv sync --frozen --no-dev
+
+# Stage 2: 运行时
+FROM python:3.11-slim AS runtime
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/app/.venv/bin:$PATH"
+
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app /app
+
+EXPOSE 8000
+
+# 启动时先跑 migration, 然后 uvicorn
+CMD ["sh", "-c", "alembic upgrade head && uvicorn plutolab_api.main:app --host 0.0.0.0 --port 8000"]
