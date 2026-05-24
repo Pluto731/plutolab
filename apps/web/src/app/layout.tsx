@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { BackgroundOrbs } from "@/components/background-orbs";
 import { CommandPalette } from "@/components/command-palette";
 import { Nav } from "@/components/nav";
+import { PageTransition } from "@/components/page-transition";
 import { QueryProvider } from "@/components/query-provider";
 import { ScrollProgress } from "@/components/scroll-progress";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -47,7 +48,7 @@ export default function RootLayout({
             <ScrollProgress />
             <Nav />
             <CommandPalette />
-            {children}
+            <PageTransition>{children}</PageTransition>
           </QueryProvider>
         </ThemeProvider>
       </body>

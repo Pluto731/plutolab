@@ -107,3 +107,62 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
+
+/* ─── 全局微交互 (Phase 1.e) ────────────────────────── */
+
+/* 文本选中: 粉紫渐变背景, 跟品牌色一致 */
+::selection {
+  background-color: oklch(0.7 0.2 320 / 0.4);
+  color: inherit;
+}
+
+/* 滚动条 - webkit (Chrome/Edge/Safari) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: oklch(0 0 0 / 0.15);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background-color: oklch(1 0 0 / 0.12);
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: oklch(0.7 0.2 320 / 0.5);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0 0 0 / 0.15) transparent;
+}
+.dark * {
+  scrollbar-color: oklch(1 0 0 / 0.12) transparent;
+}
+
+/* 焦点环改紫粉, 跟品牌色一致 */
+:focus-visible {
+  outline: 2px solid oklch(0.7 0.2 320 / 0.6);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline-offset: 4px;
+}
+
+/* 按钮 / 卡片 active 缩放反馈 */
+button:active:not(:disabled),
+[role="button"]:active:not(:disabled),
+a:active {
+  transform: scale(0.97);
+  transition: transform 0.1s ease-out;
+}
+
