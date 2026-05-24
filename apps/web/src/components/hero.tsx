@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button";
 export function Hero() {
   return (
     <section className="relative flex min-h-screen items-center justify-center overflow-hidden px-6 py-24">
-      {/* 内容区 */}
-      <div className="relative z-10 mx-auto flex max-w-4xl flex-col items-center text-center">
+      {/* 内容区 — mt-8 给 nav 留呼吸空间, 视觉上离顶部更远 */}
+      <div className="relative z-10 mx-auto mt-8 flex max-w-4xl flex-col items-center text-center">
         {/* 🪐 行星: 弹簧入场 + 呼吸 idle */}
         <motion.div
           initial={{ scale: 0, rotate: -180, opacity: 0 }}

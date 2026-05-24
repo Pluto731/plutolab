@@ -183,7 +183,7 @@ export function Features() {
                     <CardTitle className="mt-5 text-xl tracking-tight">
                       {f.title}
                     </CardTitle>
-                    <CardDescription className="mt-2 leading-relaxed">
+                    <CardDescription className="mt-2 leading-relaxed text-zinc-600 dark:text-zinc-400">
                       {f.description}
                     </CardDescription>
                   </CardHeader>

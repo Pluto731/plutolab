@@ -104,15 +104,15 @@ export function Nav() {
 
         {/* 右侧 — 搜索 + API 状态 + 主题 + (移动端) 菜单按钮 */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* ⌘K 命令面板触发按钮 */}
+          {/* ⌘K 命令面板触发按钮 — 移动端隐藏 (手机没物理键盘, ⌘K 无意义) */}
           <button
             type="button"
             onClick={openCommand}
-            className="inline-flex h-9 items-center gap-2 rounded-full border border-white/40 bg-white/30 px-3 text-zinc-600 backdrop-blur-xl transition-colors hover:bg-white/50 hover:text-zinc-900 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-zinc-400 dark:hover:bg-white/[0.05] dark:hover:text-zinc-100"
+            className="hidden h-9 items-center gap-2 rounded-full border border-white/40 bg-white/30 px-3 text-zinc-600 backdrop-blur-xl transition-colors hover:bg-white/50 hover:text-zinc-900 md:inline-flex dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-zinc-400 dark:hover:bg-white/[0.05] dark:hover:text-zinc-100"
             aria-label="打开命令面板"
           >
             <Search className="size-4" />
-            <kbd className="hidden font-mono text-xs sm:inline">
+            <kbd className="font-mono text-xs">
               {isMac ? "⌘K" : "Ctrl K"}
             </kbd>
           </button>

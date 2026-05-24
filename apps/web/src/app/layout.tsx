@@ -40,7 +40,6 @@ export default function RootLayout({
           attribute="class"
           defaultTheme="dark"
           enableSystem
-          disableTransitionOnChange
         >
           <QueryProvider>
             {/* 全站共用: 背景光球 + 顶部滚动进度条 + sticky 导航 + ⌘K 命令面板 */}
