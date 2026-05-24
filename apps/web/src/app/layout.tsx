@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { BackgroundOrbs } from "@/components/background-orbs";
+import { CommandPalette } from "@/components/command-palette";
 import { Nav } from "@/components/nav";
 import { QueryProvider } from "@/components/query-provider";
 import { ScrollProgress } from "@/components/scroll-progress";
@@ -41,10 +42,11 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <QueryProvider>
-            {/* 全站共用: 背景光球 + 顶部滚动进度条 + sticky 导航 */}
+            {/* 全站共用: 背景光球 + 顶部滚动进度条 + sticky 导航 + ⌘K 命令面板 */}
             <BackgroundOrbs />
             <ScrollProgress />
             <Nav />
+            <CommandPalette />
             {children}
           </QueryProvider>
         </ThemeProvider>

@@ -1,10 +1,10 @@
 "use client";
 
 import { motion, useScroll, useTransform } from "framer-motion";
-import { Menu, X } from "lucide-react";
+import { Menu, Search, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ApiStatusDot } from "@/components/api-status-dot";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -25,6 +25,22 @@ export function Nav() {
   // 滚动 > 80px 时背景渐显
   const bgOpacity = useTransform(scrollY, [0, 80], [0, 1]);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isMac, setIsMac] = useState(false);
+
+  useEffect(() => {
+    setIsMac(/Mac|iPhone|iPod|iPad/i.test(navigator.platform));
+  }, []);
+
+  // 触发命令面板 — dispatch keyboard event 给全局监听器 (CommandPalette 监听 cmd/ctrl+k)
+  const openCommand = () => {
+    const evt = new KeyboardEvent("keydown", {
+      key: "k",
+      ctrlKey: !isMac,
+      metaKey: isMac,
+      bubbles: true,
+    });
+    document.dispatchEvent(evt);
+  };
 
   return (
     <motion.header className="fixed inset-x-0 top-0 z-40">
@@ -86,8 +102,20 @@ export function Nav() {
           })}
         </nav>
 
-        {/* 右侧 — API 状态 + 主题 + (移动端) 菜单按钮 */}
-        <div className="flex items-center gap-3">
+        {/* 右侧 — 搜索 + API 状态 + 主题 + (移动端) 菜单按钮 */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* ⌘K 命令面板触发按钮 */}
+          <button
+            type="button"
+            onClick={openCommand}
+            className="inline-flex h-9 items-center gap-2 rounded-full border border-white/40 bg-white/30 px-3 text-zinc-600 backdrop-blur-xl transition-colors hover:bg-white/50 hover:text-zinc-900 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-zinc-400 dark:hover:bg-white/[0.05] dark:hover:text-zinc-100"
+            aria-label="打开命令面板"
+          >
+            <Search className="size-4" />
+            <kbd className="hidden font-mono text-xs sm:inline">
+              {isMac ? "⌘K" : "Ctrl K"}
+            </kbd>
+          </button>
           <ApiStatusDot />
           <ThemeToggle />
           <button
