@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
+import { BackgroundOrbs } from "@/components/background-orbs";
+import { Nav } from "@/components/nav";
 import { QueryProvider } from "@/components/query-provider";
+import { ScrollProgress } from "@/components/scroll-progress";
 import { ThemeProvider } from "@/components/theme-provider";
 
 import "./globals.css";
@@ -18,7 +21,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "PlutoLab — Your AI Workshop",
-  description: "一站式 AI 工作台：RAG 问答 / AI 代码评审 / 多 Agent / 笔记 / 插画",
+  description: "一站式 AI 工作台：RAG 问答 / AI 代码评审 / 多 Agent / 笔记 / 画作收藏",
 };
 
 export default function RootLayout({
@@ -30,14 +33,20 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full">
+      <body className="relative min-h-full overflow-x-hidden">
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
           enableSystem
           disableTransitionOnChange
         >
-          <QueryProvider>{children}</QueryProvider>
+          <QueryProvider>
+            {/* 全站共用: 背景光球 + 顶部滚动进度条 + sticky 导航 */}
+            <BackgroundOrbs />
+            <ScrollProgress />
+            <Nav />
+            {children}
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>

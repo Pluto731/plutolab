@@ -2,6 +2,7 @@
 
 import { motion, type Variants } from "framer-motion";
 import {
+  ArrowUpRight,
   Code2,
   FileSearch,
   GitPullRequest,
@@ -9,6 +10,7 @@ import {
   StickyNote,
   Workflow,
 } from "lucide-react";
+import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -26,6 +28,8 @@ const features = [
     gradient: "from-amber-500 to-orange-500",
     badge: "Phase 3",
     live: false,
+    href: "/notes",
+    external: false,
   },
   {
     icon: FileSearch,
@@ -34,6 +38,8 @@ const features = [
     gradient: "from-violet-500 to-purple-500",
     badge: "Phase 4",
     live: false,
+    href: "/rag",
+    external: false,
   },
   {
     icon: GitPullRequest,
@@ -42,6 +48,8 @@ const features = [
     gradient: "from-fuchsia-500 to-pink-500",
     badge: "Phase 5",
     live: false,
+    href: "/review",
+    external: false,
   },
   {
     icon: Workflow,
@@ -50,6 +58,8 @@ const features = [
     gradient: "from-pink-500 to-rose-500",
     badge: "Phase 6",
     live: false,
+    href: "/agents",
+    external: false,
   },
   {
     icon: ImageIcon,
@@ -58,6 +68,8 @@ const features = [
     gradient: "from-emerald-500 to-teal-500",
     badge: "Phase 7",
     live: false,
+    href: "/gallery",
+    external: false,
   },
   {
     icon: Code2,
@@ -66,10 +78,11 @@ const features = [
     gradient: "from-cyan-500 to-sky-500",
     badge: "Live",
     live: true,
+    href: "/docs",
+    external: true,
   },
 ];
 
-// stagger 容器 — 子项依次入场, 间隔 0.08s
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
   show: {
@@ -102,11 +115,11 @@ export function Features() {
           一站式 · 全能工具箱
         </h2>
         <p className="mt-4 text-base text-zinc-500 dark:text-zinc-400">
-          6 个模块 · 覆盖知识管理 · AI 协作 · 创作收藏
+          点击任意卡片探索 · 6 个模块覆盖知识管理 / AI 协作 / 创作收藏
         </p>
       </motion.div>
 
-      {/* 卡片网格 */}
+      {/* 卡片网格 — 每张卡用 Link 包裹, 整卡可点 */}
       <motion.div
         variants={containerVariants}
         initial="hidden"
@@ -123,47 +136,59 @@ export function Features() {
               whileHover={{ y: -6 }}
               transition={{ type: "spring", stiffness: 300, damping: 20 }}
             >
-              <Card
-                className="group h-full overflow-hidden border border-white/40 bg-white/30 backdrop-blur-2xl
-                           shadow-[inset_0_1px_0_0_rgba(255,255,255,0.7),0_8px_30px_-12px_rgba(0,0,0,0.08)]
-                           transition-all duration-300
-                           hover:border-white/60 hover:bg-white/50
-                           hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_20px_50px_-12px_rgba(139,92,246,0.25)]
-                           dark:border-white/[0.06] dark:bg-white/[0.03]
-                           dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_8px_30px_-12px_rgba(0,0,0,0.5)]
-                           dark:hover:border-white/[0.12] dark:hover:bg-white/[0.05]
-                           dark:hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1),0_20px_50px_-12px_rgba(139,92,246,0.4)]"
+              <Link
+                href={f.href}
+                target={f.external ? "_blank" : undefined}
+                rel={f.external ? "noopener noreferrer" : undefined}
+                className="block h-full"
               >
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    {/* 渐变图标 — hover 旋转 + 放大 */}
-                    <div
-                      className={`inline-flex size-12 items-center justify-center rounded-xl bg-gradient-to-br ${f.gradient} text-white shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:rotate-6 group-hover:shadow-xl`}
-                    >
-                      <Icon className="size-6" />
-                    </div>
-                    <Badge
-                      variant={f.live ? "default" : "secondary"}
-                      className={
-                        f.live
-                          ? "bg-emerald-500 text-white hover:bg-emerald-500/90 dark:bg-emerald-500 dark:text-white"
-                          : ""
-                      }
-                    >
-                      {f.live && (
-                        <span className="mr-1 inline-block size-1.5 animate-pulse rounded-full bg-white" />
-                      )}
-                      {f.badge}
-                    </Badge>
+                <Card
+                  className="group relative h-full cursor-pointer overflow-hidden border border-white/40 bg-white/30 backdrop-blur-2xl
+                             shadow-[inset_0_1px_0_0_rgba(255,255,255,0.7),0_8px_30px_-12px_rgba(0,0,0,0.08)]
+                             transition-all duration-300
+                             hover:border-white/60 hover:bg-white/50
+                             hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_20px_50px_-12px_rgba(139,92,246,0.25)]
+                             dark:border-white/[0.06] dark:bg-white/[0.03]
+                             dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_8px_30px_-12px_rgba(0,0,0,0.5)]
+                             dark:hover:border-white/[0.12] dark:hover:bg-white/[0.05]
+                             dark:hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1),0_20px_50px_-12px_rgba(139,92,246,0.4)]"
+                >
+                  {/* 右上角斜箭头, hover 时弹出 */}
+                  <div className="pointer-events-none absolute right-4 top-4 z-10 opacity-0 transition-all duration-300 group-hover:translate-x-1 group-hover:-translate-y-1 group-hover:opacity-60">
+                    <ArrowUpRight className="size-5 text-zinc-600 dark:text-zinc-300" />
                   </div>
-                  <CardTitle className="mt-5 text-xl tracking-tight">
-                    {f.title}
-                  </CardTitle>
-                  <CardDescription className="mt-2 leading-relaxed">
-                    {f.description}
-                  </CardDescription>
-                </CardHeader>
-              </Card>
+
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      {/* 渐变图标 */}
+                      <div
+                        className={`inline-flex size-12 items-center justify-center rounded-xl bg-gradient-to-br ${f.gradient} text-white shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:rotate-6 group-hover:shadow-xl`}
+                      >
+                        <Icon className="size-6" />
+                      </div>
+                      <Badge
+                        variant={f.live ? "default" : "secondary"}
+                        className={
+                          f.live
+                            ? "bg-emerald-500 text-white hover:bg-emerald-500/90 dark:bg-emerald-500 dark:text-white"
+                            : ""
+                        }
+                      >
+                        {f.live && (
+                          <span className="mr-1 inline-block size-1.5 animate-pulse rounded-full bg-white" />
+                        )}
+                        {f.badge}
+                      </Badge>
+                    </div>
+                    <CardTitle className="mt-5 text-xl tracking-tight">
+                      {f.title}
+                    </CardTitle>
+                    <CardDescription className="mt-2 leading-relaxed">
+                      {f.description}
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+              </Link>
             </motion.div>
           );
         })}
