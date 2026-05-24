@@ -123,7 +123,17 @@ export function Features() {
               whileHover={{ y: -6 }}
               transition={{ type: "spring", stiffness: 300, damping: 20 }}
             >
-              <Card className="group h-full overflow-hidden border-zinc-200/60 bg-white/50 backdrop-blur transition-all duration-300 hover:border-zinc-300 hover:shadow-xl dark:border-zinc-800/60 dark:bg-zinc-950/40 dark:hover:border-zinc-700">
+              <Card
+                className="group h-full overflow-hidden border border-white/40 bg-white/30 backdrop-blur-2xl
+                           shadow-[inset_0_1px_0_0_rgba(255,255,255,0.7),0_8px_30px_-12px_rgba(0,0,0,0.08)]
+                           transition-all duration-300
+                           hover:border-white/60 hover:bg-white/50
+                           hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.9),0_20px_50px_-12px_rgba(139,92,246,0.25)]
+                           dark:border-white/[0.06] dark:bg-white/[0.03]
+                           dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_8px_30px_-12px_rgba(0,0,0,0.5)]
+                           dark:hover:border-white/[0.12] dark:hover:bg-white/[0.05]
+                           dark:hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1),0_20px_50px_-12px_rgba(139,92,246,0.4)]"
+              >
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     {/* 渐变图标 — hover 旋转 + 放大 */}

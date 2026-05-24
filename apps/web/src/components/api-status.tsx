@@ -14,7 +14,13 @@ export function ApiStatus() {
   const status = isLoading ? "loading" : error ? "error" : "ok";
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white/70 p-5 backdrop-blur transition dark:border-zinc-800 dark:bg-zinc-950/50">
+    <div
+      className="rounded-2xl border border-white/40 bg-white/30 p-5 backdrop-blur-2xl
+                 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.7),0_8px_30px_-12px_rgba(0,0,0,0.08)]
+                 transition
+                 dark:border-white/[0.06] dark:bg-white/[0.03]
+                 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_8px_30px_-12px_rgba(0,0,0,0.5)]"
+    >
       <div className="flex items-center gap-3">
         {status === "loading" && (
           <Loader2 className="size-5 shrink-0 animate-spin text-zinc-400" />

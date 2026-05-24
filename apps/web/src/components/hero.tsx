@@ -1,71 +1,15 @@
 "use client";
 
-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
+import { motion } from "framer-motion";
 import { ArrowDown, Github, Rocket } from "lucide-react";
 import Link from "next/link";
-import { useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 
+// 浮动球已抽到 <BackgroundOrbs />, Hero 只负责内容
 export function Hero() {
-  // 鼠标归一化位置 (0..1)
-  const mouseX = useMotionValue(0.5);
-  const mouseY = useMotionValue(0.5);
-
-  // 三个球的视差幅度不同 → 制造深度
-  // 用 spring 让跟随平滑, 不是死跟
-  const ball1X = useSpring(useTransform(mouseX, [0, 1], [-40, 40]), {
-    damping: 30,
-    stiffness: 50,
-  });
-  const ball1Y = useSpring(useTransform(mouseY, [0, 1], [-40, 40]), {
-    damping: 30,
-    stiffness: 50,
-  });
-  const ball2X = useSpring(useTransform(mouseX, [0, 1], [60, -60]), {
-    damping: 40,
-    stiffness: 30,
-  });
-  const ball2Y = useSpring(useTransform(mouseY, [0, 1], [60, -60]), {
-    damping: 40,
-    stiffness: 30,
-  });
-  const ball3X = useSpring(useTransform(mouseX, [0, 1], [-20, 20]), {
-    damping: 25,
-    stiffness: 70,
-  });
-  const ball3Y = useSpring(useTransform(mouseY, [0, 1], [20, -20]), {
-    damping: 25,
-    stiffness: 70,
-  });
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      mouseX.set(e.clientX / window.innerWidth);
-      mouseY.set(e.clientY / window.innerHeight);
-    };
-    window.addEventListener("mousemove", handler);
-    return () => window.removeEventListener("mousemove", handler);
-  }, [mouseX, mouseY]);
-
   return (
     <section className="relative flex min-h-screen items-center justify-center overflow-hidden px-6 py-24">
-      {/* 浮动渐变球 1 — 紫色, 右上 */}
-      <motion.div
-        style={{ x: ball1X, y: ball1Y }}
-        className="pointer-events-none absolute -right-32 -top-32 size-96 rounded-full bg-violet-400/30 blur-3xl dark:bg-violet-600/40"
-      />
-      {/* 浮动渐变球 2 — 粉色, 左下, 反向跟随 */}
-      <motion.div
-        style={{ x: ball2X, y: ball2Y }}
-        className="pointer-events-none absolute -bottom-40 -left-40 size-[28rem] rounded-full bg-fuchsia-400/25 blur-3xl dark:bg-fuchsia-600/30"
-      />
-      {/* 浮动渐变球 3 — 中央, 制造光晕层次 */}
-      <motion.div
-        style={{ x: ball3X, y: ball3Y }}
-        className="pointer-events-none absolute left-1/2 top-1/3 size-72 -translate-x-1/2 rounded-full bg-pink-300/20 blur-3xl dark:bg-pink-700/25"
-      />
-
       {/* 内容区 */}
       <div className="relative z-10 mx-auto flex max-w-4xl flex-col items-center text-center">
         {/* 🪐 行星: 弹簧入场 + 呼吸 idle */}
@@ -78,7 +22,7 @@ export function Hero() {
           🪐
         </motion.div>
 
-        {/* PlutoLab 大标题 — 流光 + hover 放大 (Phase 1.b.0 已实现, 现在加入场动画) */}
+        {/* PlutoLab 大标题 — 流光 + hover 放大 */}
         <motion.h1
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -134,10 +78,9 @@ export function Hero() {
             </Link>
           </Button>
         </motion.div>
-
       </div>
 
-      {/* 滚动提示 — 固定在 Hero 视口底部, 与内容解耦 */}
+      {/* 滚动提示 — 固定在 Hero 视口底部 */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1, y: [0, 8, 0] }}

@@ -1,10 +1,11 @@
 name: CI
 
+# 临时改成只手动触发 — GitHub 账号 Actions 被风控锁, 每次 push 都失败发邮件
+# 账号解锁后改回:
+#   push:    { branches: [main] }
+#   pull_request: { branches: [main] }
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 # 同一 PR push 新 commit 时取消旧 job, 省 GH minutes
 concurrency:
