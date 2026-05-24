@@ -158,11 +158,15 @@ a:focus-visible,
   outline-offset: 4px;
 }
 
-/* 按钮 / 卡片 active 缩放反馈 */
+/* 按钮 active 缩放反馈 — 不影响 a 链接 (避免 nav / Footer / 卡片链接缩小) */
 button:active:not(:disabled),
-[role="button"]:active:not(:disabled),
-a:active {
+[role="button"]:active:not(:disabled) {
   transform: scale(0.97);
   transition: transform 0.1s ease-out;
+}
+
+/* 锚点跳转时给 section 顶部留 nav 高度 (64px) + 呼吸 */
+[id] {
+  scroll-margin-top: 5rem;
 }
 

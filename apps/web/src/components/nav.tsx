@@ -54,8 +54,8 @@ export function Nav() {
                    dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]"
       />
 
-      <div className="relative mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-        {/* Logo */}
+      <div className="relative flex h-16 items-center justify-between px-6 md:px-10 lg:px-16">
+        {/* Logo (绝对位置 — 左) */}
         <Link
           href="/"
           className="group flex items-center gap-2 select-none"
@@ -71,8 +71,8 @@ export function Nav() {
           </span>
         </Link>
 
-        {/* 主导航 (桌面) */}
-        <nav className="hidden items-center gap-1 md:flex">
+        {/* 主导航 (桌面) — 绝对居中, 不受 logo/控件宽度影响 */}
+        <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 md:flex">
           {navItems.map((item) => {
             const active =
               item.href === "/"
@@ -134,7 +134,7 @@ export function Nav() {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="relative mx-auto max-w-6xl px-6 pb-4 md:hidden"
+          className="relative px-6 pb-4 md:hidden"
         >
           <div
             className="flex flex-col gap-1 rounded-2xl border border-white/40 bg-white/70 p-2 backdrop-blur-2xl
