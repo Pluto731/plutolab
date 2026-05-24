@@ -107,7 +107,7 @@ export function Hero() {
           transition={{ duration: 0.6, delay: 0.8 }}
           className="mt-4 max-w-xl text-base leading-relaxed text-zinc-500 dark:text-zinc-400 sm:text-lg"
         >
-          一站式 AI 工作台 · 笔记 · RAG 文档问答 · 代码评审 · 多 Agent 协作 · AI 插画
+          一站式 AI 工作台
         </motion.p>
 
         {/* CTA 双按钮 */}
@@ -135,20 +135,21 @@ export function Hero() {
           </Button>
         </motion.div>
 
-        {/* 滚动提示 — 慢慢上下浮动 */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, y: [0, 8, 0] }}
-          transition={{
-            opacity: { duration: 1, delay: 1.5 },
-            y: { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 1.8 },
-          }}
-          className="absolute -bottom-4 left-1/2 -translate-x-1/2 font-mono text-xs text-zinc-400 dark:text-zinc-600"
-        >
-          <ArrowDown className="mx-auto mb-1 size-3" />
-          scroll
-        </motion.div>
       </div>
+
+      {/* 滚动提示 — 固定在 Hero 视口底部, 与内容解耦 */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1, y: [0, 8, 0] }}
+        transition={{
+          opacity: { duration: 1, delay: 1.5 },
+          y: { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 1.8 },
+        }}
+        className="pointer-events-none absolute bottom-8 left-1/2 z-10 -translate-x-1/2 font-mono text-xs text-zinc-400 dark:text-zinc-600"
+      >
+        <ArrowDown className="mx-auto mb-1 size-3" />
+        scroll
+      </motion.div>
     </section>
   );
 }
