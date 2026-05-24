@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from plutolab_api.core.config import settings
 from plutolab_api.db.base import Base
-from plutolab_api.models import *  # noqa: F401, F403 — import models so metadata is populated
+from plutolab_api.models import *  # noqa: F403 — import models so metadata is populated
 
 config = context.config
 

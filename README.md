@@ -4,7 +4,8 @@
 
 **Your AI Workshop** — 一站式智能工作台
 
-![Phase](https://img.shields.io/badge/phase-0.1-yellow)
+[![CI](https://github.com/Pluto731/plutolab/actions/workflows/ci.yml/badge.svg)](https://github.com/Pluto731/plutolab/actions/workflows/ci.yml)
+![Phase](https://img.shields.io/badge/phase-0.5-yellow)
 ![License](https://img.shields.io/badge/license-Private-red)
 ![Stack](https://img.shields.io/badge/stack-Next.js%20%7C%20FastAPI-blue)
 
@@ -77,10 +78,10 @@ pnpm dev
 ## 🗺️ Phase 路线图
 
 - [x] **Phase 0.1** — 仓库初始化 ✅
-- [ ] **Phase 0.2** — Docker Compose 开发环境
-- [ ] **Phase 0.3** — FastAPI 后端骨架
-- [ ] **Phase 0.4** — Next.js 前端骨架
-- [ ] **Phase 0.5** — GitHub Actions CI
+- [x] **Phase 0.2** — Docker Compose 开发环境 ✅
+- [x] **Phase 0.3** — FastAPI 后端骨架 ✅
+- [x] **Phase 0.4** — Next.js 前端骨架 ✅
+- [x] **Phase 0.5** — GitHub Actions CI ✅
 - [ ] **Phase 0.6** — VPS 部署 + 自动 HTTPS
 - [ ] **Phase 1** — 美观主框架 UI
 - [ ] **Phase 2** — 账号系统

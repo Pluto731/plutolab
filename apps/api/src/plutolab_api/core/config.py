@@ -23,9 +23,7 @@ class Settings(BaseSettings):
         default_factory=lambda: ["http://localhost:3000", "http://localhost:8080"]
     )
 
-    database_url: str = Field(
-        default="postgresql+asyncpg://pluto:changeme@localhost:5432/pluto"
-    )
+    database_url: str = Field(default="postgresql+asyncpg://pluto:changeme@localhost:5432/pluto")
     redis_url: str = Field(default="redis://localhost:6379/0")
 
 
