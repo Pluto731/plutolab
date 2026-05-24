@@ -60,7 +60,7 @@ done
 
 echo ''
 echo '--- 容器状态 ---'
-docker compose -f "$COMPOSE_FILE" ps
+docker compose -f "$COMPOSE_FILE" --env-file .env.prod ps
 
 echo ''
 echo '--- 验证 ---'

@@ -79,7 +79,8 @@ services:
       context: .
       dockerfile: infra/docker/Dockerfile.web
       args:
-        NEXT_PUBLIC_API_URL: /api
+        # 空字符串 = 同源访问 (浏览器自动用当前页面的 host), Caddy 转发 /api/* → api:8000
+        NEXT_PUBLIC_API_URL: ""
     container_name: plutolab-prod-web
     restart: unless-stopped
     environment:
