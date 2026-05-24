@@ -17,6 +17,30 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* 流光动画 — 让背景渐变在文字内左右流动 */
+  --animate-shine: shine 5s linear infinite;
+  /* 呼吸放大 — idle 时缓慢呼吸 */
+  --animate-breathe: breathe 4s ease-in-out infinite;
+}
+
+@keyframes shine {
+  0% {
+    background-position: 0% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
 }
 
 body {

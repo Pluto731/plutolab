@@ -12,9 +12,14 @@ export default function Home() {
       </div>
 
       <div className="relative mx-auto flex min-h-screen max-w-4xl flex-col items-center justify-center px-6 py-24">
-        <div className="text-7xl drop-shadow-lg">🪐</div>
+        <div className="animate-breathe text-7xl drop-shadow-lg select-none">🪐</div>
 
-        <h1 className="mt-6 bg-gradient-to-r from-violet-600 via-fuchsia-500 to-pink-500 bg-clip-text text-7xl font-bold tracking-tight text-transparent dark:from-violet-400 dark:via-fuchsia-400 dark:to-pink-400">
+        {/* 流光 + hover 放大 + 多色循环渐变, 让字体活过来 */}
+        <h1
+          className="group mt-6 cursor-pointer select-none bg-[length:200%_auto] bg-clip-text text-7xl font-bold tracking-tight text-transparent transition-all duration-500 ease-out hover:scale-110 hover:tracking-wider hover:drop-shadow-[0_0_40px_rgba(236,72,153,0.6)]
+                     bg-gradient-to-r from-violet-600 via-fuchsia-500 via-pink-500 via-fuchsia-500 to-violet-600 animate-shine
+                     dark:from-violet-400 dark:via-fuchsia-400 dark:via-pink-400 dark:via-fuchsia-400 dark:to-violet-400"
+        >
           PlutoLab
         </h1>
 
