@@ -118,6 +118,19 @@ export function Nav() {
           </button>
           <ApiStatusDot />
           <ThemeToggle />
+          {/* 登录 / 注册 入口 (桌面) */}
+          <Link
+            href="/login"
+            className="hidden px-2 text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-900 sm:inline-flex dark:text-zinc-300 dark:hover:text-white"
+          >
+            登录
+          </Link>
+          <Link
+            href="/register"
+            className="hidden h-9 items-center rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-500 px-4 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90 sm:inline-flex dark:from-violet-500 dark:to-fuchsia-400"
+          >
+            注册
+          </Link>
           <button
             type="button"
             onClick={() => setMobileOpen((v) => !v)}
@@ -163,6 +176,21 @@ export function Nav() {
                 </Link>
               );
             })}
+            <div className="my-1 h-px bg-zinc-200/70 dark:bg-white/10" />
+            <Link
+              href="/login"
+              onClick={() => setMobileOpen(false)}
+              className="rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100/60 dark:text-zinc-300 dark:hover:bg-zinc-800/60"
+            >
+              登录
+            </Link>
+            <Link
+              href="/register"
+              onClick={() => setMobileOpen(false)}
+              className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-500 px-3 py-2.5 text-center text-sm font-medium text-white"
+            >
+              注册
+            </Link>
           </div>
         </motion.div>
       )}

@@ -116,6 +116,7 @@ export default function LoginPage() {
           <Github className="mr-2 size-5" />
           用 GitHub 登录
         </Button>
+        <p className="mt-2 text-center text-xs text-muted-foreground">GitHub 登录即将开放</p>
       </div>
 
       <p className="mt-8 text-center text-sm text-muted-foreground">

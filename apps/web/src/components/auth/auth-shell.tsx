@@ -15,8 +15,8 @@ interface AuthShellProps {
 export function AuthShell({ typing, hidingEyes, children }: AuthShellProps) {
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      {/* 左栏：品牌 + 动画角色 (仅桌面) */}
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-violet-600 via-fuchsia-600 to-purple-700 p-12 text-white lg:flex">
+      {/* 左栏：品牌 + 动画角色 (仅桌面) — 与全站品牌渐变一致 紫→品红→粉 */}
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-violet-600 via-fuchsia-500 to-pink-500 p-12 text-white lg:flex">
         <div className="relative z-20 flex items-center gap-2 text-lg font-semibold">
           <span className="text-2xl">🪐</span>
           <span>PlutoLab</span>
@@ -37,8 +37,8 @@ export function AuthShell({ typing, hidingEyes, children }: AuthShellProps) {
         <div className="pointer-events-none absolute bottom-1/4 left-1/4 size-96 rounded-full bg-white/5 blur-3xl" />
       </div>
 
-      {/* 右栏：表单 */}
-      <div className="flex items-center justify-center bg-background p-8">
+      {/* 右栏：表单 — 淡淡品牌色过渡, 和左栏同色系不割裂 */}
+      <div className="flex items-center justify-center bg-gradient-to-br from-violet-50 via-background to-fuchsia-50/60 p-8 dark:from-violet-950/30 dark:via-background dark:to-fuchsia-950/20">
         <div className="w-full max-w-[420px]">
           {/* 移动端 logo */}
           <div className="mb-12 flex items-center justify-center gap-2 text-lg font-semibold lg:hidden">
