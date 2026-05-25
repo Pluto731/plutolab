@@ -1,5 +1,6 @@
 """PlutoLab FastAPI app entry."""
 
+import mimetypes
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -47,6 +48,10 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix="/api/v1")
+
+# 确保 .webp 返回 image/webp (slim 容器的 mimetypes 默认不认, 否则配合
+# Caddy 的 X-Content-Type-Options: nosniff 浏览器会拒绝渲染头像)
+mimetypes.add_type("image/webp", ".webp")
 
 # 头像静态文件 (check_dir=False: 目录由 lifespan startup 创建)
 app.mount(
