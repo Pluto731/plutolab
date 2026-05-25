@@ -1,6 +1,7 @@
 "use client";
 
-import { LogOut } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 import type { AuthUser } from "@/lib/auth";
@@ -41,6 +42,14 @@ export function UserMenu({ user, onLogout }: { user: AuthUser; onLogout: () => v
               <p className="truncate text-xs text-muted-foreground">{user.email}</p>
             </div>
             <div className="my-1 h-px bg-zinc-200/70 dark:bg-white/10" />
+            <Link
+              href="/settings"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100/70 dark:text-zinc-200 dark:hover:bg-white/[0.06]"
+            >
+              <Settings className="size-4" />
+              个人设置
+            </Link>
             <button
               type="button"
               onClick={() => {

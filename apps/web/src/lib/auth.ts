@@ -68,3 +68,41 @@ export async function fetchMe(): Promise<AuthUser> {
   }
   return res.json() as Promise<AuthUser>;
 }
+
+function authHeaders(): Record<string, string> {
+  const token = getAccessToken();
+  const base: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) base.Authorization = `Bearer ${token}`;
+  return base;
+}
+
+function detailMessage(data: unknown, fallback: string): string {
+  const detail = (data as { detail?: unknown } | null)?.detail;
+  return typeof detail === "string" ? detail : fallback;
+}
+
+export async function updateProfile(body: { name: string }): Promise<AuthUser> {
+  const res = await fetch(`${API_URL}/api/v1/users/me`, {
+    method: "PATCH",
+    headers: authHeaders(),
+    body: JSON.stringify(body),
+  });
+  const data: unknown = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(detailMessage(data, "更新失败，请稍后重试"));
+  return data as AuthUser;
+}
+
+export async function changePassword(body: {
+  current_password: string;
+  new_password: string;
+}): Promise<void> {
+  const res = await fetch(`${API_URL}/api/v1/users/me/password`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const data: unknown = await res.json().catch(() => null);
+    throw new Error(detailMessage(data, "修改失败，请稍后重试"));
+  }
+}
