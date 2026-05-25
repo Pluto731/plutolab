@@ -1,6 +1,8 @@
 packages:
-  - 'apps/*'
+  - 'apps/web'
+  - 'apps/api'
   - 'packages/*'
+# web-lab 不参与 workspace (独立 npm install, 避免 NTFS + pnpm lightningcss 翻车)
 
 allowBuilds:
   sharp: true
