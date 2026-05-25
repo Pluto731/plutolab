@@ -2,7 +2,6 @@
 
 import { Eye, EyeOff, Github } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { AuthShell } from "@/components/auth/auth-shell";
@@ -12,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { register, storeTokens } from "@/lib/auth";
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,7 +27,8 @@ export default function RegisterPage() {
     try {
       const tokens = await register({ email, password, name: name.trim() || undefined });
       storeTokens(tokens);
-      router.push("/");
+      // 整页跳转, 让 Nav 重新读取登录态
+      window.location.assign("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "注册失败，请稍后重试");
       setIsLoading(false);

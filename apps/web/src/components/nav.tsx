@@ -7,6 +7,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { ApiStatusDot } from "@/components/api-status-dot";
+import { useAuthUser } from "@/components/auth/use-auth";
+import { UserMenu } from "@/components/auth/user-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +23,7 @@ const navItems = [
 
 export function Nav() {
   const pathname = usePathname();
+  const { user, logout } = useAuthUser();
   const { scrollY } = useScroll();
   // 滚动 > 80px 时背景渐显
   const bgOpacity = useTransform(scrollY, [0, 80], [0, 1]);
@@ -118,19 +121,25 @@ export function Nav() {
           </button>
           <ApiStatusDot />
           <ThemeToggle />
-          {/* 登录 / 注册 入口 (桌面) — 一对等高胶囊: 登录玻璃质感, 注册品牌渐变 */}
-          <Link
-            href="/login"
-            className="hidden h-9 items-center rounded-full border border-white/40 bg-white/30 px-4 text-sm font-medium text-zinc-700 backdrop-blur-xl transition-colors hover:bg-white/50 hover:text-zinc-900 sm:inline-flex dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:bg-white/[0.08] dark:hover:text-white"
-          >
-            登录
-          </Link>
-          <Link
-            href="/register"
-            className="hidden h-9 items-center rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 text-sm font-medium text-white shadow-sm shadow-fuchsia-500/20 transition-all hover:shadow-md hover:brightness-110 sm:inline-flex"
-          >
-            注册
-          </Link>
+          {/* 登录态: 已登录显示用户菜单, 否则显示 登录/注册 入口 (桌面一对等高胶囊) */}
+          {user ? (
+            <UserMenu user={user} onLogout={logout} />
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="hidden h-9 items-center rounded-full border border-white/40 bg-white/30 px-4 text-sm font-medium text-zinc-700 backdrop-blur-xl transition-colors hover:bg-white/50 hover:text-zinc-900 sm:inline-flex dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:bg-white/[0.08] dark:hover:text-white"
+              >
+                登录
+              </Link>
+              <Link
+                href="/register"
+                className="hidden h-9 items-center rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 text-sm font-medium text-white shadow-sm shadow-fuchsia-500/20 transition-all hover:shadow-md hover:brightness-110 sm:inline-flex"
+              >
+                注册
+              </Link>
+            </>
+          )}
           <button
             type="button"
             onClick={() => setMobileOpen((v) => !v)}
@@ -177,20 +186,43 @@ export function Nav() {
               );
             })}
             <div className="my-1 h-px bg-zinc-200/70 dark:bg-white/10" />
-            <Link
-              href="/login"
-              onClick={() => setMobileOpen(false)}
-              className="rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100/60 dark:text-zinc-300 dark:hover:bg-zinc-800/60"
-            >
-              登录
-            </Link>
-            <Link
-              href="/register"
-              onClick={() => setMobileOpen(false)}
-              className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-500 px-3 py-2.5 text-center text-sm font-medium text-white"
-            >
-              注册
-            </Link>
+            {user ? (
+              <>
+                <div className="px-3 py-2">
+                  <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                    {user.name || user.email}
+                  </p>
+                  <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">{user.email}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileOpen(false);
+                    logout();
+                  }}
+                  className="rounded-lg px-3 py-2.5 text-left text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100/60 dark:text-zinc-300 dark:hover:bg-zinc-800/60"
+                >
+                  退出登录
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100/60 dark:text-zinc-300 dark:hover:bg-zinc-800/60"
+                >
+                  登录
+                </Link>
+                <Link
+                  href="/register"
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-500 px-3 py-2.5 text-center text-sm font-medium text-white"
+                >
+                  注册
+                </Link>
+              </>
+            )}
           </div>
         </motion.div>
       )}

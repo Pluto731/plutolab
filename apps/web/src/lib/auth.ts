@@ -56,3 +56,15 @@ export function register(body: { email: string; password: string; name?: string 
 export function login(body: { email: string; password: string }): Promise<TokenResponse> {
   return postAuth("/api/v1/auth/login", body);
 }
+
+export async function fetchMe(): Promise<AuthUser> {
+  const token = getAccessToken();
+  const res = await fetch(`${API_URL}/api/v1/auth/me`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    clearTokens();
+    throw new Error("unauthorized");
+  }
+  return res.json() as Promise<AuthUser>;
+}
