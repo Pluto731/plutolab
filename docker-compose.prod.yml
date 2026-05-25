@@ -65,6 +65,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-pluto}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-pluto}
       REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: '["http://${PUBLIC_HOST:-localhost}"]'
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required in .env.prod}
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,13 +1,9 @@
-"""User model — minimum viable placeholder for Phase 0.3.b.
-
-Real auth fields land in Phase 2 (account system). For now this exists so we can
-verify ORM mapping, migrations, and DB connectivity end-to-end.
-"""
+"""User model — account system (Phase 2)."""
 
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import BigInteger, DateTime, String, text
+from sqlalchemy import BigInteger, Boolean, DateTime, String, text
 from sqlalchemy.dialects.postgresql import UUID as PgUUID  # noqa: N811
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -28,6 +24,9 @@ class User(Base):
     name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     avatar: Mapped[str | None] = mapped_column(String(500), nullable=True)
     plan: Mapped[str] = mapped_column(String(20), nullable=False, server_default=text("'free'"))
+    email_verified: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("NOW()")
     )
