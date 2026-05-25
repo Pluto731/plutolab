@@ -118,16 +118,16 @@ export function Nav() {
           </button>
           <ApiStatusDot />
           <ThemeToggle />
-          {/* 登录 / 注册 入口 (桌面) */}
+          {/* 登录 / 注册 入口 (桌面) — 一对等高胶囊: 登录玻璃质感, 注册品牌渐变 */}
           <Link
             href="/login"
-            className="hidden px-2 text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-900 sm:inline-flex dark:text-zinc-300 dark:hover:text-white"
+            className="hidden h-9 items-center rounded-full border border-white/40 bg-white/30 px-4 text-sm font-medium text-zinc-700 backdrop-blur-xl transition-colors hover:bg-white/50 hover:text-zinc-900 sm:inline-flex dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:bg-white/[0.08] dark:hover:text-white"
           >
             登录
           </Link>
           <Link
             href="/register"
-            className="hidden h-9 items-center rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-500 px-4 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90 sm:inline-flex dark:from-violet-500 dark:to-fuchsia-400"
+            className="hidden h-9 items-center rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 text-sm font-medium text-white shadow-sm shadow-fuchsia-500/20 transition-all hover:shadow-md hover:brightness-110 sm:inline-flex"
           >
             注册
           </Link>

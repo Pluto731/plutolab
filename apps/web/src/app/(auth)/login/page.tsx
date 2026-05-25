@@ -90,7 +90,7 @@ export default function LoginPage() {
         <div className="flex items-center justify-between">
           <Label htmlFor="remember" className="cursor-pointer font-normal">
             <Checkbox id="remember" />
-            记住我 30 天
+            记住我
           </Label>
           <a href="#" className="text-sm font-medium text-primary hover:underline">
             忘记密码？
