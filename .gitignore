@@ -70,6 +70,10 @@ playwright-report/
 test-results/
 .nyc_output/
 
+# ─── Uploads (本地头像存储) ─────────────────
+_avatars/
+apps/api/_avatars/
+
 # ─── Misc ───────────────────────────────────
 *.local
 .tmp/

@@ -66,6 +66,9 @@ services:
       REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: '["http://${PUBLIC_HOST:-localhost}"]'
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required in .env.prod}
+      AVATAR_DIR: /data/avatars
+    volumes:
+      - avatars-prod-data:/data/avatars
     depends_on:
       postgres:
         condition: service_healthy
@@ -113,6 +116,8 @@ volumes:
     name: plutolab-prod-postgres-data
   redis-prod-data:
     name: plutolab-prod-redis-data
+  avatars-prod-data:
+    name: plutolab-prod-avatars-data
   caddy-prod-data:
     name: plutolab-prod-caddy-data
   caddy-prod-config:

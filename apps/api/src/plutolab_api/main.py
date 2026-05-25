@@ -1,9 +1,11 @@
 """PlutoLab FastAPI app entry."""
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from plutolab_api.api.v1.router import api_router
@@ -22,6 +24,8 @@ async def lifespan(_: FastAPI):
     async with engine.begin() as conn:
         await conn.execute(text("SELECT 1"))
     logger.info("plutolab.api.db_connected", url=settings.database_url.split("@")[-1])
+    # 确保头像目录存在 (StaticFiles 挂载要求目录已存在)
+    Path(settings.avatar_dir).mkdir(parents=True, exist_ok=True)
     yield
     await dispose_engine()
     logger.info("plutolab.api.shutdown")
@@ -43,3 +47,10 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix="/api/v1")
+
+# 头像静态文件 (check_dir=False: 目录由 lifespan startup 创建)
+app.mount(
+    "/api/v1/avatars",
+    StaticFiles(directory=settings.avatar_dir, check_dir=False),
+    name="avatars",
+)

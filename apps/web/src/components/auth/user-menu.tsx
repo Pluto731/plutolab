@@ -4,12 +4,12 @@ import { LogOut, Settings } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+import { Avatar } from "@/components/auth/avatar";
 import type { AuthUser } from "@/lib/auth";
 
 export function UserMenu({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
   const [open, setOpen] = useState(false);
   const display = user.name || user.email;
-  const initial = display.charAt(0).toUpperCase();
 
   return (
     <div className="relative">
@@ -19,9 +19,7 @@ export function UserMenu({ user, onLogout }: { user: AuthUser; onLogout: () => v
         className="flex h-9 items-center gap-2 rounded-full border border-white/40 bg-white/30 pl-1 pr-3 backdrop-blur-xl transition-colors hover:bg-white/50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
         aria-label="用户菜单"
       >
-        <span className="flex size-7 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-xs font-semibold text-white">
-          {initial}
-        </span>
+        <Avatar user={user} className="size-7 text-xs" />
         <span className="hidden max-w-[8rem] truncate text-sm font-medium text-zinc-700 sm:inline dark:text-zinc-200">
           {display}
         </span>

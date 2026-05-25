@@ -106,3 +106,24 @@ export async function changePassword(body: {
     throw new Error(detailMessage(data, "修改失败，请稍后重试"));
   }
 }
+
+export async function uploadAvatar(file: File): Promise<AuthUser> {
+  const token = getAccessToken();
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${API_URL}/api/v1/users/me/avatar`, {
+    method: "POST",
+    // 不要手动设 Content-Type, 让浏览器带上 multipart boundary
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  const data: unknown = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(detailMessage(data, "上传失败，请稍后重试"));
+  return data as AuthUser;
+}
+
+/** 头像绝对 URL (后端存相对路径, 拼上 API base 以兼容 dev 跨端口)。 */
+export function avatarUrl(user: { avatar: string | null }): string | null {
+  if (!user.avatar) return null;
+  return user.avatar.startsWith("http") ? user.avatar : `${API_URL}${user.avatar}`;
+}

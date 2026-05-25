@@ -32,5 +32,9 @@ class Settings(BaseSettings):
     jwt_access_ttl_min: int = Field(default=15)
     jwt_refresh_ttl_days: int = Field(default=7)
 
+    # 头像本地存储目录 (prod 用 docker volume 挂载 /data/avatars)
+    avatar_dir: str = Field(default="/data/avatars")
+    avatar_max_bytes: int = Field(default=2 * 1024 * 1024)  # 2 MB
+
 
 settings = Settings()
