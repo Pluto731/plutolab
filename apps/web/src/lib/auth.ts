@@ -150,9 +150,12 @@ export async function githubLogin(code: string, redirectUri: string): Promise<To
   return data as TokenResponse;
 }
 
-/** 发起 GitHub 授权跳转 (带 state 防 CSRF, 存 sessionStorage 供回调校验)。 */
+/** 发起 GitHub 授权跳转 (带 state 防 CSRF, 存 sessionStorage 供回调校验)。
+ *  用 getRandomValues 而非 randomUUID: 后者在 http (非 secure context) 下不可用。 */
 export function startGitHubAuth(clientId: string): void {
-  const state = crypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  const state = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
   sessionStorage.setItem("gh_oauth_state", state);
   const redirectUri = `${window.location.origin}/auth/github/callback`;
   const params = new URLSearchParams({
