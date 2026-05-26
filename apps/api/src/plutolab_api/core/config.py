@@ -36,5 +36,9 @@ class Settings(BaseSettings):
     avatar_dir: str = Field(default="/data/avatars")
     avatar_max_bytes: int = Field(default=2 * 1024 * 1024)  # 2 MB
 
+    # GitHub OAuth (未配置时 /auth/github 返回 503, 前端按钮禁用)
+    github_client_id: str = Field(default="")
+    github_client_secret: str = Field(default="")
+
 
 settings = Settings()

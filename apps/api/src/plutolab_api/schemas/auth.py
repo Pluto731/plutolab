@@ -24,3 +24,13 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     user: UserPublic
+
+
+class GitHubLoginRequest(BaseModel):
+    code: str
+    redirect_uri: str
+
+
+class GitHubConfigResponse(BaseModel):
+    client_id: str
+    configured: bool

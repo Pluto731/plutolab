@@ -67,6 +67,8 @@ services:
       CORS_ORIGINS: '["http://${PUBLIC_HOST:-localhost}"]'
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required in .env.prod}
       AVATAR_DIR: /data/avatars
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
     volumes:
       - avatars-prod-data:/data/avatars
     depends_on:

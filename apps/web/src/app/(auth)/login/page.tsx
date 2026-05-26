@@ -1,10 +1,11 @@
 "use client";
 
-import { Eye, EyeOff, Github } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
 import { AuthShell } from "@/components/auth/auth-shell";
+import { GitHubButton } from "@/components/auth/github-button";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -110,13 +111,7 @@ export default function LoginPage() {
         </Button>
       </form>
 
-      <div className="mt-6">
-        <Button type="button" variant="outline" className="h-12 w-full" disabled>
-          <Github className="mr-2 size-5" />
-          用 GitHub 登录
-        </Button>
-        <p className="mt-2 text-center text-xs text-muted-foreground">GitHub 登录即将开放</p>
-      </div>
+      <GitHubButton label="用 GitHub 登录" />
 
       <p className="mt-8 text-center text-sm text-muted-foreground">
         还没有账号？{" "}

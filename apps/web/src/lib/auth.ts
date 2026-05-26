@@ -127,3 +127,39 @@ export function avatarUrl(user: { avatar: string | null }): string | null {
   if (!user.avatar) return null;
   return user.avatar.startsWith("http") ? user.avatar : `${API_URL}${user.avatar}`;
 }
+
+export interface GitHubConfig {
+  client_id: string;
+  configured: boolean;
+}
+
+export async function githubConfig(): Promise<GitHubConfig> {
+  const res = await fetch(`${API_URL}/api/v1/auth/github/config`);
+  if (!res.ok) return { client_id: "", configured: false };
+  return res.json() as Promise<GitHubConfig>;
+}
+
+export async function githubLogin(code: string, redirectUri: string): Promise<TokenResponse> {
+  const res = await fetch(`${API_URL}/api/v1/auth/github`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, redirect_uri: redirectUri }),
+  });
+  const data: unknown = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(detailMessage(data, "GitHub 登录失败"));
+  return data as TokenResponse;
+}
+
+/** 发起 GitHub 授权跳转 (带 state 防 CSRF, 存 sessionStorage 供回调校验)。 */
+export function startGitHubAuth(clientId: string): void {
+  const state = crypto.randomUUID();
+  sessionStorage.setItem("gh_oauth_state", state);
+  const redirectUri = `${window.location.origin}/auth/github/callback`;
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    scope: "read:user user:email",
+    state,
+  });
+  window.location.assign(`https://github.com/login/oauth/authorize?${params}`);
+}
