@@ -1,34 +1,50 @@
-"""Authentication endpoints: register, login, current user."""
+"""Authentication endpoints: register, login, current user, password reset."""
 
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from plutolab_api.api.deps import CurrentUser
 from plutolab_api.core.config import settings
+from plutolab_api.core.email import Mailer, get_mailer
 from plutolab_api.core.github_oauth import exchange_code
+from plutolab_api.core.logging import get_logger
+from plutolab_api.core.redis import get_redis
 from plutolab_api.core.security import (
     create_access_token,
     create_refresh_token,
     hash_password,
     verify_password,
 )
+from plutolab_api.core.tokens import claim_rate_limit, consume_token, issue_token
 from plutolab_api.db.deps import get_db
 from plutolab_api.models.user import User
 from plutolab_api.schemas.auth import (
+    ForgotPasswordRequest,
     GitHubConfigResponse,
     GitHubLoginRequest,
     LoginRequest,
+    MessageResponse,
     RegisterRequest,
+    ResetPasswordRequest,
     TokenResponse,
 )
 from plutolab_api.schemas.user import UserPublic
 
+logger = get_logger(__name__)
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
+RedisDep = Annotated[Redis, Depends(get_redis)]
+MailerDep = Annotated[Mailer, Depends(get_mailer)]
+
+PASSWORD_RESET_PURPOSE = "pwreset"
+# 无论邮箱是否注册，统一返回这段文案，避免暴露账号存在性。
+_FORGOT_OK = "如果该邮箱已注册，我们已发送重置链接，请查收。"
 
 
 def _tokens_for(user: User) -> TokenResponse:
@@ -106,3 +122,67 @@ async def github_login(body: GitHubLoginRequest, db: DbSession) -> TokenResponse
     await db.commit()
     await db.refresh(user)
     return _tokens_for(user)
+
+
+@router.post("/forgot-password", response_model=MessageResponse)
+async def forgot_password(
+    body: ForgotPasswordRequest,
+    db: DbSession,
+    redis: RedisDep,
+    mailer: MailerDep,
+) -> MessageResponse:
+    """Send a password-reset link to the given email.
+
+    Always returns 200 with the same message — we don't reveal whether the
+    email is registered. Silently throttled per-email to prevent mailbox
+    flooding by an attacker.
+    """
+    email = body.email
+    # 同邮箱 N 秒内只发一次. 命中限流静默丢弃, 响应不变 (不暴露邮箱状态).
+    allowed = await claim_rate_limit(
+        redis, f"forgot:{email}", settings.password_reset_rate_limit_seconds
+    )
+    if not allowed:
+        logger.info("plutolab.auth.forgot_password.throttled", email=email)
+        return MessageResponse(message=_FORGOT_OK)
+
+    user = await db.scalar(select(User).where(User.email == email))
+    # 邮箱未注册或仅 GitHub 登录 (无 password_hash) → 不发, 也返回相同文案
+    if user is None or user.password_hash is None:
+        logger.info(
+            "plutolab.auth.forgot_password.no_user",
+            email=email,
+            reason="not_found" if user is None else "oauth_only",
+        )
+        return MessageResponse(message=_FORGOT_OK)
+
+    token = await issue_token(
+        redis, PASSWORD_RESET_PURPOSE, str(user.id), settings.password_reset_ttl_seconds
+    )
+    reset_url = f"{settings.app_base_url.rstrip('/')}/reset-password?token={token}"
+    ttl_min = max(1, settings.password_reset_ttl_seconds // 60)
+    await mailer.send_password_reset(to=email, reset_url=reset_url, ttl_minutes=ttl_min)
+    return MessageResponse(message=_FORGOT_OK)
+
+
+@router.post("/reset-password", response_model=MessageResponse)
+async def reset_password(
+    body: ResetPasswordRequest, db: DbSession, redis: RedisDep
+) -> MessageResponse:
+    """Consume a reset token and set a new password.
+
+    Tokens are one-shot (deleted on consume), so a leaked link can't be
+    replayed after use.
+    """
+    user_id = await consume_token(redis, PASSWORD_RESET_PURPOSE, body.token)
+    if user_id is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="重置链接无效或已过期")
+
+    user = await db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="重置链接无效或已过期")
+
+    user.password_hash = hash_password(body.password)
+    await db.commit()
+    logger.info("plutolab.auth.password_reset.success", user_id=user_id)
+    return MessageResponse(message="密码已重置，请用新密码登录。")

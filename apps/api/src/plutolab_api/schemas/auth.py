@@ -34,3 +34,16 @@ class GitHubLoginRequest(BaseModel):
 class GitHubConfigResponse(BaseModel):
     client_id: str
     configured: bool
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=10, max_length=200)
+    password: str = _PW
+
+
+class MessageResponse(BaseModel):
+    message: str

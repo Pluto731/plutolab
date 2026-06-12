@@ -40,5 +40,22 @@ class Settings(BaseSettings):
     github_client_id: str = Field(default="")
     github_client_secret: str = Field(default="")
 
+    # 邮件 (本地默认指向 Mailpit; 生产用环境变量覆盖指向真实 SMTP)
+    smtp_host: str = Field(default="localhost")
+    smtp_port: int = Field(default=1025)
+    smtp_user: str = Field(default="")
+    smtp_password: str = Field(default="")
+    smtp_from: str = Field(default="PlutoLab <noreply@plutolab.local>")
+    smtp_use_tls: bool = Field(default=False)
+    smtp_start_tls: bool = Field(default=False)
+
+    # 前端站点 base url (拼邮件里的链接用; 生产用环境变量覆盖成对外域名/IP)
+    app_base_url: str = Field(default="http://localhost:3000")
+
+    # 密码重置 token 有效期 (秒)
+    password_reset_ttl_seconds: int = Field(default=3600)
+    # 同邮箱发送间隔 (秒) — 防刷
+    password_reset_rate_limit_seconds: int = Field(default=60)
+
 
 settings = Settings()

@@ -71,6 +71,19 @@ services:
     networks:
       - plutolab-net
 
+  # 本地开发邮件捕获 (不真发外部): SMTP=1025, Web UI=8025
+  # 后端往 localhost:1025 发信, 打开 http://localhost:8025 即可看到收到的邮件
+  # (原计划 axllent/mailpit, 但国内 docker mirror 没缓存; mailhog 端口/语义完全一致)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: plutolab-mailhog
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:1025:1025'   # SMTP
+      - '127.0.0.1:8025:8025'   # Web UI
+    networks:
+      - plutolab-net
+
 volumes:
   postgres-data:
     name: plutolab-postgres-data

@@ -57,6 +57,32 @@ export function login(body: { email: string; password: string }): Promise<TokenR
   return postAuth("/api/v1/auth/login", body);
 }
 
+export interface MessageResponse {
+  message: string;
+}
+
+async function postMessage(path: string, body: unknown): Promise<MessageResponse> {
+  const res = await fetch(`${API_URL}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const detail = (data as { detail?: unknown } | null)?.detail;
+    throw new Error(typeof detail === "string" ? detail : "请求失败，请稍后重试");
+  }
+  return data as MessageResponse;
+}
+
+export function forgotPassword(email: string): Promise<MessageResponse> {
+  return postMessage("/api/v1/auth/forgot-password", { email });
+}
+
+export function resetPassword(token: string, password: string): Promise<MessageResponse> {
+  return postMessage("/api/v1/auth/reset-password", { token, password });
+}
+
 export async function fetchMe(): Promise<AuthUser> {
   const token = getAccessToken();
   const res = await fetch(`${API_URL}/api/v1/auth/me`, {

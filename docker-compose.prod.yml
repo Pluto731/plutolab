@@ -69,6 +69,12 @@ services:
       AVATAR_DIR: /data/avatars
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      # 邮件: 走 docker 内网的 mailhog (容器名), 邮件落到 mailhog Web UI 不真发外部
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+      SMTP_FROM: 'PlutoLab <noreply@plutolab.local>'
+      # 拼重置/验证链接用 — 生产指向对外公网 host
+      APP_BASE_URL: http://${PUBLIC_HOST:-localhost}
     volumes:
       - avatars-prod-data:/data/avatars
     depends_on:
@@ -76,6 +82,19 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      mailhog:
+        condition: service_started
+    networks:
+      - plutolab-prod
+
+  # 本地邮件捕获 (Phase 2.3) — 后端往 mailhog:1025 发信, 邮件不真出 VPS
+  # Web UI 在 :8025 直接暴露公网 (demo 用, 无认证; 切真实 SMTP 后可撤掉端口映射)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: plutolab-prod-mailhog
+    restart: unless-stopped
+    ports:
+      - "8025:8025"
     networks:
       - plutolab-prod
 

@@ -92,9 +92,12 @@ export default function LoginPage() {
             <Checkbox id="remember" />
             记住我
           </Label>
-          <a href="#" className="text-sm font-medium text-primary hover:underline">
+          <Link
+            href="/forgot-password"
+            className="text-sm font-medium text-primary hover:underline"
+          >
             忘记密码？
-          </a>
+          </Link>
         </div>
 
         {error && (
