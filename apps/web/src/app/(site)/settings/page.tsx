@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { KeyRound, Loader2, UserRound } from "lucide-react";
+import { AlertCircle, CheckCircle2, KeyRound, Loader2, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -10,7 +10,12 @@ import { useAuthUser } from "@/components/auth/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { changePassword, updateProfile, uploadAvatar } from "@/lib/auth";
+import {
+  changePassword,
+  sendVerification,
+  updateProfile,
+  uploadAvatar,
+} from "@/lib/auth";
 
 type Msg = { type: "ok" | "err"; text: string } | null;
 
@@ -47,6 +52,17 @@ export default function SettingsPage() {
   const [confirm, setConfirm] = useState("");
   const [savingPw, setSavingPw] = useState(false);
   const [pwMsg, setPwMsg] = useState<Msg>(null);
+
+  const [resendingVerify, setResendingVerify] = useState(false);
+  const [verifyCooldown, setVerifyCooldown] = useState(0);
+  const [verifyMsg, setVerifyMsg] = useState<Msg>(null);
+
+  // 重发验证邮件按钮的 60s 冷却 (匹配后端 email_verify_rate_limit_seconds)
+  useEffect(() => {
+    if (verifyCooldown <= 0) return;
+    const t = setInterval(() => setVerifyCooldown((c) => Math.max(0, c - 1)), 1000);
+    return () => clearInterval(t);
+  }, [verifyCooldown]);
 
   useEffect(() => {
     if (mounted && !loading && !user) router.replace("/login");
@@ -95,6 +111,20 @@ export default function SettingsPage() {
       setNameMsg({ type: "err", text: err instanceof Error ? err.message : "保存失败" });
     } finally {
       setSavingName(false);
+    }
+  };
+
+  const onResendVerify = async () => {
+    setVerifyMsg(null);
+    setResendingVerify(true);
+    try {
+      const res = await sendVerification();
+      setVerifyMsg({ type: "ok", text: res.message });
+      setVerifyCooldown(60);
+    } catch (err) {
+      setVerifyMsg({ type: "err", text: err instanceof Error ? err.message : "发送失败" });
+    } finally {
+      setResendingVerify(false);
     }
   };
 
@@ -168,8 +198,37 @@ export default function SettingsPage() {
         </div>
         <form onSubmit={onSaveName} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">邮箱</Label>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="email">邮箱</Label>
+              {user.email_verified ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="size-3" /> 已验证
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                  <AlertCircle className="size-3" /> 未验证
+                </span>
+              )}
+            </div>
             <Input id="email" value={user.email} disabled className="h-11" />
+            {!user.email_verified && (
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onResendVerify}
+                  disabled={resendingVerify || verifyCooldown > 0}
+                >
+                  {resendingVerify
+                    ? "发送中…"
+                    : verifyCooldown > 0
+                      ? `重发 (${verifyCooldown}s)`
+                      : "重发验证邮件"}
+                </Button>
+                <FormMsg msg={verifyMsg} />
+              </div>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="name">昵称</Label>

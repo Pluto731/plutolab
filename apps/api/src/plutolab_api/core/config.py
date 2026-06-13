@@ -57,5 +57,10 @@ class Settings(BaseSettings):
     # 同邮箱发送间隔 (秒) — 防刷
     password_reset_rate_limit_seconds: int = Field(default=60)
 
+    # 邮箱验证 token 有效期 (秒, 默认 24 小时)
+    email_verify_ttl_seconds: int = Field(default=86400)
+    # 同用户重发验证邮件间隔 (秒)
+    email_verify_rate_limit_seconds: int = Field(default=60)
+
 
 settings = Settings()

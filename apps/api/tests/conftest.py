@@ -25,17 +25,36 @@ TEST_DB_NAME = "pluto_test"
 
 
 class FakeMailer(Mailer):
-    """Test double — records sends instead of hitting SMTP."""
+    """Test double — records sends instead of hitting SMTP.
+
+    Use `.reset_emails` / `.verify_emails` to assert on a specific kind
+    without worrying about other emails the flow happens to trigger
+    (e.g. register now sends a verification email)."""
 
     def __init__(self) -> None:
         self.sent: list[dict[str, object]] = []
 
+    @property
+    def reset_emails(self) -> list[dict[str, object]]:
+        return [s for s in self.sent if s.get("kind") == "reset"]
+
+    @property
+    def verify_emails(self) -> list[dict[str, object]]:
+        return [s for s in self.sent if s.get("kind") == "verify"]
+
     async def send(self, to, subject, html_body, text_body):
-        # 兜底; 我们的接口只走 send_password_reset, 这里不应被调到.
-        self.sent.append({"to": to, "subject": subject})
+        # 兜底; 我们的接口只走 send_password_reset / send_email_verification.
+        self.sent.append({"kind": "raw", "to": to, "subject": subject})
 
     async def send_password_reset(self, to, reset_url, ttl_minutes):
-        self.sent.append({"to": to, "reset_url": reset_url, "ttl_minutes": ttl_minutes})
+        self.sent.append(
+            {"kind": "reset", "to": to, "reset_url": reset_url, "ttl_minutes": ttl_minutes}
+        )
+
+    async def send_email_verification(self, to, verify_url, ttl_hours):
+        self.sent.append(
+            {"kind": "verify", "to": to, "verify_url": verify_url, "ttl_hours": ttl_hours}
+        )
 
 
 def _test_db_url() -> str:

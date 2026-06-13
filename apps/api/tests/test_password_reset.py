@@ -31,8 +31,8 @@ class TestForgotPassword:
         resp = await client.post(FORGOT, json={"email": "alice@example.com"})
         assert resp.status_code == 200
         assert resp.json()["message"] == _OK_MESSAGE
-        assert len(fake_mailer.sent) == 1
-        sent = fake_mailer.sent[0]
+        assert len(fake_mailer.reset_emails) == 1
+        sent = fake_mailer.reset_emails[0]
         assert sent["to"] == "alice@example.com"
         assert "token=" in str(sent["reset_url"])
 
@@ -42,7 +42,7 @@ class TestForgotPassword:
         resp = await client.post(FORGOT, json={"email": "ghost@example.com"})
         assert resp.status_code == 200
         assert resp.json()["message"] == _OK_MESSAGE
-        assert fake_mailer.sent == []
+        assert fake_mailer.reset_emails == []
 
     async def test_oauth_only_user_returns_ok_but_does_not_send(
         self,
@@ -59,7 +59,7 @@ class TestForgotPassword:
 
         resp = await client.post(FORGOT, json={"email": "ghuser@example.com"})
         assert resp.status_code == 200
-        assert fake_mailer.sent == []
+        assert fake_mailer.reset_emails == []
 
     async def test_throttled_second_call_does_not_send(
         self, client: AsyncClient, fake_mailer: FakeMailer
@@ -70,7 +70,7 @@ class TestForgotPassword:
         assert first.status_code == 200
         assert second.status_code == 200
         # 第二次被静默限流, mailer 不会再收到
-        assert len(fake_mailer.sent) == 1
+        assert len(fake_mailer.reset_emails) == 1
 
     async def test_rejects_bad_email_format(self, client: AsyncClient) -> None:
         resp = await client.post(FORGOT, json={"email": "not-an-email"})
@@ -83,7 +83,7 @@ class TestResetPassword:
     ) -> None:
         await _register(client, "carol@example.com", "oldpassword")
         await client.post(FORGOT, json={"email": "carol@example.com"})
-        token = _token_from(str(fake_mailer.sent[0]["reset_url"]))
+        token = _token_from(str(fake_mailer.reset_emails[0]["reset_url"]))
 
         resp = await client.post(RESET, json={"token": token, "password": "newpassword1"})
         assert resp.status_code == 200
@@ -102,7 +102,7 @@ class TestResetPassword:
     async def test_token_is_one_shot(self, client: AsyncClient, fake_mailer: FakeMailer) -> None:
         await _register(client, "dave@example.com", "oldpassword")
         await client.post(FORGOT, json={"email": "dave@example.com"})
-        token = _token_from(str(fake_mailer.sent[0]["reset_url"]))
+        token = _token_from(str(fake_mailer.reset_emails[0]["reset_url"]))
 
         ok = await client.post(RESET, json={"token": token, "password": "newpassword1"})
         replay = await client.post(RESET, json={"token": token, "password": "thirdpassword1"})
@@ -120,7 +120,7 @@ class TestResetPassword:
     ) -> None:
         await _register(client, "erin@example.com", "oldpassword")
         await client.post(FORGOT, json={"email": "erin@example.com"})
-        token = _token_from(str(fake_mailer.sent[0]["reset_url"]))
+        token = _token_from(str(fake_mailer.reset_emails[0]["reset_url"]))
 
         resp = await client.post(RESET, json={"token": token, "password": "short"})
         assert resp.status_code == 422
@@ -136,7 +136,7 @@ class TestForgotPasswordResetUrl:
 
         await _register(client, "fiona@example.com", "originalpw")
         await client.post(FORGOT, json={"email": "fiona@example.com"})
-        url = str(fake_mailer.sent[0]["reset_url"])
+        url = str(fake_mailer.reset_emails[0]["reset_url"])
         assert url.startswith(settings.app_base_url.rstrip("/") + "/reset-password?token=")
 
 
@@ -149,6 +149,6 @@ class TestTokenIsolation:
     ) -> None:
         await _register(client, "grace@example.com", "originalpw")
         await client.post(FORGOT, json={"email": "grace@example.com"})
-        token = _token_from(str(fake_mailer.sent[0]["reset_url"]))
+        token = _token_from(str(fake_mailer.reset_emails[0]["reset_url"]))
         # Redis key 必须带 purpose 前缀, 防止跨用途重放
         assert await fake_redis.exists(f"pwreset:{token}") == 1

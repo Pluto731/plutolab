@@ -62,6 +62,22 @@ class Mailer:
         )
         await self.send(to=to, subject="重置你的 PlutoLab 密码", html_body=html, text_body=text)
 
+    async def send_email_verification(
+        self, to: str, verify_url: str, ttl_hours: int
+    ) -> None:
+        html = render(
+            "verify_email.html",
+            verify_url=verify_url,
+            ttl_hours=ttl_hours,
+        )
+        text = (
+            "欢迎加入 PlutoLab！\n\n"
+            f"请打开以下链接验证邮箱 (有效期 {ttl_hours} 小时):\n"
+            f"{verify_url}\n\n"
+            "如果不是你本人注册，请忽略此邮件。"
+        )
+        await self.send(to=to, subject="验证你的 PlutoLab 邮箱", html_body=html, text_body=text)
+
 
 def get_mailer() -> Mailer:
     """FastAPI dependency: stateless mailer instance per request."""

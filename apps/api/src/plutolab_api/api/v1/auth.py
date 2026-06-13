@@ -31,6 +31,7 @@ from plutolab_api.schemas.auth import (
     RegisterRequest,
     ResetPasswordRequest,
     TokenResponse,
+    VerifyEmailRequest,
 )
 from plutolab_api.schemas.user import UserPublic
 
@@ -43,8 +44,22 @@ RedisDep = Annotated[Redis, Depends(get_redis)]
 MailerDep = Annotated[Mailer, Depends(get_mailer)]
 
 PASSWORD_RESET_PURPOSE = "pwreset"
+EMAIL_VERIFY_PURPOSE = "emailverify"
 # 无论邮箱是否注册，统一返回这段文案，避免暴露账号存在性。
 _FORGOT_OK = "如果该邮箱已注册，我们已发送重置链接，请查收。"
+
+
+async def _send_verification_email(redis: Redis, mailer: Mailer, user: User) -> None:
+    """Issue a one-shot verify token + send the verification email.
+
+    Raises on failure; caller decides whether to swallow (e.g. register flow
+    must not fail just because SMTP is down)."""
+    token = await issue_token(
+        redis, EMAIL_VERIFY_PURPOSE, str(user.id), settings.email_verify_ttl_seconds
+    )
+    verify_url = f"{settings.app_base_url.rstrip('/')}/verify-email?token={token}"
+    ttl_hours = max(1, settings.email_verify_ttl_seconds // 3600)
+    await mailer.send_email_verification(to=user.email, verify_url=verify_url, ttl_hours=ttl_hours)
 
 
 def _tokens_for(user: User) -> TokenResponse:
@@ -57,7 +72,12 @@ def _tokens_for(user: User) -> TokenResponse:
 
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def register(body: RegisterRequest, db: DbSession) -> TokenResponse:
+async def register(
+    body: RegisterRequest,
+    db: DbSession,
+    redis: RedisDep,
+    mailer: MailerDep,
+) -> TokenResponse:
     existing = await db.scalar(select(User).where(User.email == body.email))
     if existing is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, detail="Email already registered")
@@ -70,6 +90,17 @@ async def register(body: RegisterRequest, db: DbSession) -> TokenResponse:
     db.add(user)
     await db.commit()
     await db.refresh(user)
+
+    # 发验证邮件 — 失败不挡注册 (SMTP 抖动 / 模板渲染异常都只 warn, 用户可在设置页重发)
+    try:
+        await _send_verification_email(redis, mailer, user)
+    except Exception as e:
+        logger.warning(
+            "plutolab.auth.register.verify_email_failed",
+            user_id=str(user.id),
+            error=str(e),
+        )
+
     return _tokens_for(user)
 
 
@@ -186,3 +217,46 @@ async def reset_password(
     await db.commit()
     logger.info("plutolab.auth.password_reset.success", user_id=user_id)
     return MessageResponse(message="密码已重置，请用新密码登录。")
+
+
+@router.post("/send-verification", response_model=MessageResponse)
+async def send_verification(
+    user: CurrentUser, redis: RedisDep, mailer: MailerDep
+) -> MessageResponse:
+    """Resend the email-verification link to the current user."""
+    if user.email_verified:
+        return MessageResponse(message="邮箱已经验证过了。")
+
+    allowed = await claim_rate_limit(
+        redis, f"emailverify:{user.id}", settings.email_verify_rate_limit_seconds
+    )
+    if not allowed:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="请稍后再试 (1 分钟内只能重发一次)。",
+        )
+
+    await _send_verification_email(redis, mailer, user)
+    return MessageResponse(message="验证邮件已发送，请查收。")
+
+
+@router.post("/verify-email", response_model=MessageResponse)
+async def verify_email(
+    body: VerifyEmailRequest, db: DbSession, redis: RedisDep
+) -> MessageResponse:
+    """Consume an email-verification token and mark the user as verified."""
+    user_id = await consume_token(redis, EMAIL_VERIFY_PURPOSE, body.token)
+    if user_id is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="验证链接无效或已过期")
+
+    user = await db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="验证链接无效或已过期")
+
+    if user.email_verified:
+        return MessageResponse(message="邮箱已经验证过了。")
+
+    user.email_verified = True
+    await db.commit()
+    logger.info("plutolab.auth.email_verified", user_id=user_id)
+    return MessageResponse(message="邮箱验证成功！")

@@ -83,6 +83,20 @@ export function resetPassword(token: string, password: string): Promise<MessageR
   return postMessage("/api/v1/auth/reset-password", { token, password });
 }
 
+export function verifyEmail(token: string): Promise<MessageResponse> {
+  return postMessage("/api/v1/auth/verify-email", { token });
+}
+
+export async function sendVerification(): Promise<MessageResponse> {
+  const res = await fetch(`${API_URL}/api/v1/auth/send-verification`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  const data: unknown = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(detailMessage(data, "发送失败，请稍后重试"));
+  return data as MessageResponse;
+}
+
 export async function fetchMe(): Promise<AuthUser> {
   const token = getAccessToken();
   const res = await fetch(`${API_URL}/api/v1/auth/me`, {
