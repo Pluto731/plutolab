@@ -87,14 +87,16 @@ services:
     networks:
       - plutolab-prod
 
-  # 本地邮件捕获 (Phase 2.3) — 后端往 mailhog:1025 发信, 邮件不真出 VPS
-  # Web UI 在 :8025 直接暴露公网 (demo 用, 无认证; 切真实 SMTP 后可撤掉端口映射)
+  # 邮件捕获 (Phase 2.3) — 后端往 mailhog:1025 发信, 邮件不真出 VPS
+  # 安全: Web UI 只绑 loopback (127.0.0.1:8025), 不暴露公网, 否则任何人能读所有密码重置邮件
+  # → 账号接管 (ATO) 风险. 访问方式: 本地 SSH tunnel
+  #   ssh -L 8025:127.0.0.1:8025 vps   # 然后浏览器开 http://localhost:8025
   mailhog:
     image: mailhog/mailhog:latest
     container_name: plutolab-prod-mailhog
     restart: unless-stopped
     ports:
-      - "8025:8025"
+      - "127.0.0.1:8025:8025"
     networks:
       - plutolab-prod
 
