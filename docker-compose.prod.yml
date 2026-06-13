@@ -69,6 +69,8 @@ services:
       AVATAR_DIR: /data/avatars
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      # API Key 加密 (Phase 2.5) — 生产必填, 不填用 dev 默认值会 log warning
+      FERNET_KEY: ${FERNET_KEY:?FERNET_KEY required in .env.prod, gen with Fernet.generate_key()}
       # 邮件: 默认走 docker 内网 mailhog 不真发, .env.prod 设了 SMTP_HOST 就用真 SMTP
       # 用 ${VAR:-default} 让 .env.prod 能覆盖, 否则字面值优先级最高 .env.prod 没用
       SMTP_HOST: ${SMTP_HOST:-mailhog}

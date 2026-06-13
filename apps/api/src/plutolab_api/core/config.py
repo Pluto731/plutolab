@@ -66,5 +66,10 @@ class Settings(BaseSettings):
     # 同用户重发验证邮件间隔 (秒)
     email_verify_rate_limit_seconds: int = Field(default=60)
 
+    # API Key 加密 (Phase 2.5) — Fernet 对称密钥, 生产必须用真随机值
+    # 生成: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    # dev 默认值不安全 (是从已知字符串 b64 来的), 启动时 log warning 提醒生产换
+    fernet_key: str = Field(default="cGx1dG9sYWJfZGV2X2luc2VjdXJlX2tleV94eF8xMjM=")
+
 
 settings = Settings()

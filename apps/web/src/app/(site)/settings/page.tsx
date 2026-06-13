@@ -5,6 +5,7 @@ import { AlertCircle, CheckCircle2, KeyRound, Loader2, UserRound } from "lucide-
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { ApiKeysSection } from "@/components/auth/api-keys-section";
 import { Avatar } from "@/components/auth/avatar";
 import { useAuthUser } from "@/components/auth/use-auth";
 import { Button } from "@/components/ui/button";
@@ -303,6 +304,11 @@ export default function SettingsPage() {
           </div>
         </form>
       </section>
+
+      {/* API Keys (Phase 2.5) */}
+      <div className="mt-6">
+        <ApiKeysSection />
+      </div>
     </main>
   );
 }

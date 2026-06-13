@@ -87,6 +87,50 @@ export function verifyEmail(token: string): Promise<MessageResponse> {
   return postMessage("/api/v1/auth/verify-email", { token });
 }
 
+export type ApiKeyProvider = "anthropic" | "openai" | "replicate";
+
+export interface ApiKeyPublic {
+  id: string;
+  provider: ApiKeyProvider;
+  key_preview: string;
+  label: string | null;
+  created_at: string;
+}
+
+export async function listApiKeys(): Promise<ApiKeyPublic[]> {
+  const res = await fetch(`${API_URL}/api/v1/users/me/api-keys`, {
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(`API keys ${res.status}`);
+  return res.json() as Promise<ApiKeyPublic[]>;
+}
+
+export async function createApiKey(body: {
+  provider: ApiKeyProvider;
+  key: string;
+  label?: string;
+}): Promise<ApiKeyPublic> {
+  const res = await fetch(`${API_URL}/api/v1/users/me/api-keys`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify(body),
+  });
+  const data: unknown = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(detailMessage(data, "添加失败"));
+  return data as ApiKeyPublic;
+}
+
+export async function deleteApiKey(id: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/v1/users/me/api-keys/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok && res.status !== 204) {
+    const data: unknown = await res.json().catch(() => null);
+    throw new Error(detailMessage(data, "删除失败"));
+  }
+}
+
 /** 新流程: 输邮箱+新密码 → 服务端发 6 位验证码邮件 (代码式) */
 export function requestPasswordCode(
   email: string,
