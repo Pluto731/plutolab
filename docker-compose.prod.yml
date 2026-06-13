@@ -69,10 +69,15 @@ services:
       AVATAR_DIR: /data/avatars
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
-      # 邮件: 走 docker 内网的 mailhog (容器名), 邮件落到 mailhog Web UI 不真发外部
-      SMTP_HOST: mailhog
-      SMTP_PORT: 1025
-      SMTP_FROM: 'PlutoLab <noreply@plutolab.local>'
+      # 邮件: 默认走 docker 内网 mailhog 不真发, .env.prod 设了 SMTP_HOST 就用真 SMTP
+      # 用 ${VAR:-default} 让 .env.prod 能覆盖, 否则字面值优先级最高 .env.prod 没用
+      SMTP_HOST: ${SMTP_HOST:-mailhog}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-PlutoLab <noreply@plutolab.local>}
+      SMTP_START_TLS: ${SMTP_START_TLS:-false}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-false}
       # 拼重置/验证链接用 — 生产指向对外公网 host
       APP_BASE_URL: http://${PUBLIC_HOST:-localhost}
     volumes:
