@@ -1,5 +1,7 @@
 """Authentication endpoints: register, login, current user, password reset."""
 
+import json
+import secrets
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -29,9 +31,11 @@ from plutolab_api.schemas.auth import (
     LoginRequest,
     MessageResponse,
     RegisterRequest,
+    RequestPasswordCodeRequest,
     ResetPasswordRequest,
     TokenResponse,
     VerifyEmailRequest,
+    VerifyPasswordCodeRequest,
 )
 from plutolab_api.schemas.user import UserPublic
 
@@ -45,8 +49,17 @@ MailerDep = Annotated[Mailer, Depends(get_mailer)]
 
 PASSWORD_RESET_PURPOSE = "pwreset"
 EMAIL_VERIFY_PURPOSE = "emailverify"
+# 验证码流程的 Redis key 前缀 (复合 payload, 不走 tokens 模块)
+_CODE_KEY = "pwresetcode"
+_CODE_ATTEMPTS_KEY = "pwresetattempts"
 # 无论邮箱是否注册，统一返回这段文案，避免暴露账号存在性。
 _FORGOT_OK = "如果该邮箱已注册，我们已发送重置链接，请查收。"
+_CODE_SENT_OK = "如果该邮箱已注册，验证码已发送，请查收邮件。"
+
+
+def _generate_code() -> str:
+    """6 位数字验证码, 带前导零."""
+    return f"{secrets.randbelow(1_000_000):06d}"
 
 
 async def _send_verification_email(redis: Redis, mailer: Mailer, user: User) -> None:
@@ -260,3 +273,103 @@ async def verify_email(
     await db.commit()
     logger.info("plutolab.auth.email_verified", user_id=user_id)
     return MessageResponse(message="邮箱验证成功！")
+
+
+# ─── 验证码式密码重置 (Phase 2.3.c) ─────────────────────────────
+# 流程: 用户在浏览器输 (email + 新密码) → 系统发 6 位数字验证码邮件 →
+# 用户回浏览器输验证码 → 系统改密码. 旧的链接式 forgot/reset-password 保留.
+
+
+@router.post("/request-password-code", response_model=MessageResponse)
+async def request_password_code(
+    body: RequestPasswordCodeRequest,
+    db: DbSession,
+    redis: RedisDep,
+    mailer: MailerDep,
+) -> MessageResponse:
+    """接收 (email, new_password), 暂存新密码 hash + 6 位验证码到 Redis (10min TTL),
+    发验证码邮件. 不暴露邮箱是否注册."""
+    email = body.email
+    # 限流: 同邮箱 60s 一次 (复用同一 rate limit key, 跟链接式互斥)
+    allowed = await claim_rate_limit(
+        redis, f"pwreset:{email}", settings.password_reset_rate_limit_seconds
+    )
+    if not allowed:
+        logger.info("plutolab.auth.password_code.throttled", email=email)
+        return MessageResponse(message=_CODE_SENT_OK)
+
+    user = await db.scalar(select(User).where(User.email == email))
+    if user is None or user.password_hash is None:
+        logger.info(
+            "plutolab.auth.password_code.no_user",
+            email=email,
+            reason="not_found" if user is None else "oauth_only",
+        )
+        return MessageResponse(message=_CODE_SENT_OK)
+
+    # 生成验证码 + 立即 hash 新密码 (不存明文), 一起暂存
+    code = _generate_code()
+    payload = json.dumps(
+        {
+            "code": code,
+            "hash": hash_password(body.password),
+            "user_id": str(user.id),
+        }
+    )
+    await redis.set(
+        f"{_CODE_KEY}:{email}", payload, ex=settings.password_reset_code_ttl_seconds
+    )
+    # 重置 attempts 计数 (重新申请等于清零)
+    await redis.delete(f"{_CODE_ATTEMPTS_KEY}:{email}")
+
+    ttl_min = max(1, settings.password_reset_code_ttl_seconds // 60)
+    await mailer.send_password_reset_code(to=email, code=code, ttl_minutes=ttl_min)
+    return MessageResponse(message=_CODE_SENT_OK)
+
+
+@router.post("/verify-password-code", response_model=MessageResponse)
+async def verify_password_code(
+    body: VerifyPasswordCodeRequest,
+    db: DbSession,
+    redis: RedisDep,
+) -> MessageResponse:
+    """验证 6 位验证码 + 应用 Redis 里暂存的密码 hash 到数据库."""
+    email = body.email
+
+    # 限错码次数: 同邮箱 600s 内最多 N 次失败尝试
+    attempts = await redis.incr(f"{_CODE_ATTEMPTS_KEY}:{email}")
+    if attempts == 1:
+        await redis.expire(
+            f"{_CODE_ATTEMPTS_KEY}:{email}", settings.password_reset_code_ttl_seconds
+        )
+    if attempts > settings.password_reset_code_max_attempts:
+        # 超限 → 整次申请作废, 用户必须重新申请
+        await redis.delete(f"{_CODE_KEY}:{email}")
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="验证码尝试次数过多，请重新申请。",
+        )
+
+    raw = await redis.get(f"{_CODE_KEY}:{email}")
+    if raw is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="验证码无效或已过期")
+    data = json.loads(raw)
+
+    # secrets.compare_digest 防 timing attack
+    if not secrets.compare_digest(str(data.get("code", "")), body.code):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="验证码错误")
+
+    user = await db.get(User, data["user_id"])
+    if user is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="账号不存在")
+
+    user.password_hash = data["hash"]
+    await db.commit()
+    # 清理: 验证码 + attempts 计数 + rate-limit 都释放, 让用户能立即登录
+    await redis.delete(
+        f"{_CODE_KEY}:{email}",
+        f"{_CODE_ATTEMPTS_KEY}:{email}",
+        f"ratelimit:pwreset:{email}",
+    )
+    logger.info("plutolab.auth.password_code.success", user_id=str(user.id))
+    return MessageResponse(message="密码已修改，请用新密码登录。")

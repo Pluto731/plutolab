@@ -42,6 +42,10 @@ class FakeMailer(Mailer):
     def verify_emails(self) -> list[dict[str, object]]:
         return [s for s in self.sent if s.get("kind") == "verify"]
 
+    @property
+    def code_emails(self) -> list[dict[str, object]]:
+        return [s for s in self.sent if s.get("kind") == "code"]
+
     async def send(self, to, subject, html_body, text_body):
         # 兜底; 我们的接口只走 send_password_reset / send_email_verification.
         self.sent.append({"kind": "raw", "to": to, "subject": subject})
@@ -54,6 +58,11 @@ class FakeMailer(Mailer):
     async def send_email_verification(self, to, verify_url, ttl_hours):
         self.sent.append(
             {"kind": "verify", "to": to, "verify_url": verify_url, "ttl_hours": ttl_hours}
+        )
+
+    async def send_password_reset_code(self, to, code, ttl_minutes):
+        self.sent.append(
+            {"kind": "code", "to": to, "code": code, "ttl_minutes": ttl_minutes}
         )
 
 

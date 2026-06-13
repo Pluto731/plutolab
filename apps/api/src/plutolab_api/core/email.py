@@ -62,6 +62,29 @@ class Mailer:
         )
         await self.send(to=to, subject="重置你的 PlutoLab 密码", html_body=html, text_body=text)
 
+    async def send_password_reset_code(
+        self, to: str, code: str, ttl_minutes: int
+    ) -> None:
+        """新流程: 用户在浏览器输了新密码, 邮件给 6 位验证码确认."""
+        html = render(
+            "reset_password_code.html",
+            code=code,
+            ttl_minutes=ttl_minutes,
+        )
+        text = (
+            "我们收到了你修改 PlutoLab 密码的请求。\n\n"
+            f"在浏览器里输入下面 6 位验证码 (有效期 {ttl_minutes} 分钟):\n\n"
+            f"    {code}\n\n"
+            "如果不是你本人操作，请忽略此邮件，并立即登录账号检查安全设置 "
+            "— 密码不会被修改。"
+        )
+        await self.send(
+            to=to,
+            subject="PlutoLab 密码修改验证码",
+            html_body=html,
+            text_body=text,
+        )
+
     async def send_email_verification(
         self, to: str, verify_url: str, ttl_hours: int
     ) -> None:

@@ -52,10 +52,14 @@ class Settings(BaseSettings):
     # 前端站点 base url (拼邮件里的链接用; 生产用环境变量覆盖成对外域名/IP)
     app_base_url: str = Field(default="http://localhost:3000")
 
-    # 密码重置 token 有效期 (秒)
+    # 密码重置 token 有效期 (秒, 链接式流程)
     password_reset_ttl_seconds: int = Field(default=3600)
     # 同邮箱发送间隔 (秒) — 防刷
     password_reset_rate_limit_seconds: int = Field(default=60)
+    # 密码重置验证码 (Phase 2.3.c) 有效期 — 10 分钟比链接式短
+    password_reset_code_ttl_seconds: int = Field(default=600)
+    # 验证码错码次数上限 (达到后该次申请作废, 要重新申请)
+    password_reset_code_max_attempts: int = Field(default=3)
 
     # 邮箱验证 token 有效期 (秒, 默认 24 小时)
     email_verify_ttl_seconds: int = Field(default=86400)

@@ -45,6 +45,20 @@ class ResetPasswordRequest(BaseModel):
     password: str = _PW
 
 
+class RequestPasswordCodeRequest(BaseModel):
+    """新流程: 本地直接输新密码 + 邮箱; 系统发验证码到邮箱."""
+
+    email: EmailStr
+    password: str = _PW
+
+
+class VerifyPasswordCodeRequest(BaseModel):
+    """凭邮件里的 6 位验证码确认改密码."""
+
+    email: EmailStr
+    code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
 class VerifyEmailRequest(BaseModel):
     token: str = Field(min_length=10, max_length=200)
 

@@ -87,6 +87,22 @@ export function verifyEmail(token: string): Promise<MessageResponse> {
   return postMessage("/api/v1/auth/verify-email", { token });
 }
 
+/** 新流程: 输邮箱+新密码 → 服务端发 6 位验证码邮件 (代码式) */
+export function requestPasswordCode(
+  email: string,
+  password: string,
+): Promise<MessageResponse> {
+  return postMessage("/api/v1/auth/request-password-code", { email, password });
+}
+
+/** 新流程: 输验证码确认改密码 */
+export function verifyPasswordCode(
+  email: string,
+  code: string,
+): Promise<MessageResponse> {
+  return postMessage("/api/v1/auth/verify-password-code", { email, code });
+}
+
 export async function sendVerification(): Promise<MessageResponse> {
   const res = await fetch(`${API_URL}/api/v1/auth/send-verification`, {
     method: "POST",
