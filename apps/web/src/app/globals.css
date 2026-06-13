@@ -172,30 +172,25 @@ button:active:not(:disabled),
 
 /* ─── Dashboard (Phase 2.7') ───────────────────────── */
 
-/* Conic gradient 旋转边框: 用 @property 让 angle 可动画, mask 镂空中心 */
-@property --conic-angle {
-  syntax: "<angle>";
-  initial-value: 0deg;
-  inherits: false;
+/* Magic Spotlight — 卡片 hover 时鼠标位置追随的紫色辉光
+ * (借鉴 MagicUI / Aceternity 最热门的 Spotlight Card 模式)
+ * 容器 JSX 上 onMouseMove 设 --mx/--my CSS var, 此元素读它做 radial-gradient
+ * 父级 .group:hover 时让此元素淡入 */
+.spotlight {
+  background: radial-gradient(
+    300px circle at var(--mx, 50%) var(--my, 50%),
+    oklch(0.7 0.2 320 / 0.18),
+    transparent 65%
+  );
 }
 
-@keyframes conic-spin {
-  to {
-    --conic-angle: 360deg;
-  }
-}
-
-.conic-border {
-  --conic-angle: 0deg;
-  background: conic-gradient(
-    from var(--conic-angle),
-    oklch(0.7 0.2 320 / 0.7),
-    transparent 25%,
-    oklch(0.7 0.22 350 / 0.6),
-    transparent 50%,
-    oklch(0.65 0.22 290 / 0.65),
-    transparent 75%,
-    oklch(0.7 0.2 320 / 0.7)
+/* Magic Spotlight 的发光边框: 同样跟鼠标, 但只在内边缘描一圈光
+ * 用 mask 镂空中心, 只留 1.5px 边框 */
+.spotlight-border {
+  background: radial-gradient(
+    280px circle at var(--mx, 50%) var(--my, 50%),
+    oklch(0.7 0.22 320 / 0.7),
+    transparent 60%
   );
   padding: 1.5px;
   -webkit-mask:
@@ -203,12 +198,56 @@ button:active:not(:disabled),
     linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  animation: conic-spin 4s linear infinite;
+}
+
+/* Aurora Hero — 多色 blob 漂移 morph, 像极光. 复用 framer-motion 在 JSX 实现位移 */
+/* CSS 这边只需要 mix-blend 让色块叠加柔和 */
+.aurora-canvas {
+  filter: blur(60px) saturate(150%);
+  mix-blend-mode: screen;
+}
+.dark .aurora-canvas {
+  mix-blend-mode: lighten;
+}
+
+/* Shimmer button — 一道斜光每 N 秒扫过一次 (MagicUI 招牌) */
+@keyframes shimmer-sweep {
+  0% {
+    background-position: -200% 0;
+  }
+  60%,
+  100% {
+    background-position: 200% 0;
+  }
+}
+.shimmer-on-hover {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer-on-hover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.45) 50%,
+    transparent 65%
+  );
+  background-size: 200% 100%;
+  background-position: -200% 0;
+  pointer-events: none;
+}
+.shimmer-on-hover:hover::after {
+  animation: shimmer-sweep 1.2s ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .conic-border {
+  .shimmer-on-hover:hover::after {
     animation: none;
+  }
+  .aurora-canvas {
+    filter: blur(60px);
   }
 }
 
