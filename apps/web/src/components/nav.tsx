@@ -12,8 +12,7 @@ import { UserMenu } from "@/components/auth/user-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
 
-const navItems = [
-  { name: "首页", href: "/" },
+const FEATURE_ITEMS = [
   { name: "笔记", href: "/notes" },
   { name: "RAG", href: "/rag" },
   { name: "评审", href: "/review" },
@@ -24,6 +23,16 @@ const navItems = [
 export function Nav() {
   const pathname = usePathname();
   const { user, logout } = useAuthUser();
+
+  // 已登录时第一项变 "工作台 → /dashboard", 未登录时是 "首页 → /"
+  // (避免登录后 nav 还把人引回 marketing 首页)
+  const navItems = [
+    user ? { name: "工作台", href: "/dashboard" } : { name: "首页", href: "/" },
+    ...FEATURE_ITEMS,
+  ];
+
+  // Logo 跟随登录态: 已登录的 home 是工作台
+  const logoHref = user ? "/dashboard" : "/";
   const { scrollY } = useScroll();
   // 滚动 > 80px 时背景渐显
   const bgOpacity = useTransform(scrollY, [0, 80], [0, 1]);
@@ -58,9 +67,9 @@ export function Nav() {
       />
 
       <div className="relative flex h-16 items-center justify-between px-6 md:px-10 lg:px-16">
-        {/* Logo (绝对位置 — 左) */}
+        {/* Logo (绝对位置 — 左) — 已登录指向工作台, 未登录指向首页 */}
         <Link
-          href="/"
+          href={logoHref}
           className="group flex items-center gap-2 select-none"
         >
           <span className="text-2xl transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110">
@@ -78,9 +87,7 @@ export function Nav() {
         <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 md:flex">
           {navItems.map((item) => {
             const active =
-              item.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(item.href);
+              item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
             return (
               <Link
                 key={item.href}

@@ -1,6 +1,7 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
+import Link from "next/link";
 
 import { CharacterScene } from "@/components/auth/character-scene";
 
@@ -17,10 +18,16 @@ export function AuthShell({ typing, hidingEyes, children }: AuthShellProps) {
     <div className="grid min-h-screen lg:grid-cols-2">
       {/* 左栏：品牌 + 动画角色 (仅桌面) — 与全站品牌渐变一致 紫→品红→粉 */}
       <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-violet-600 via-fuchsia-500 to-pink-500 p-12 text-white lg:flex">
-        <div className="relative z-20 flex items-center gap-2 text-lg font-semibold">
-          <span className="text-2xl">🪐</span>
+        <Link
+          href="/"
+          className="group relative z-20 flex w-fit items-center gap-2 text-lg font-semibold transition-opacity hover:opacity-80"
+          aria-label="返回首页"
+        >
+          <span className="text-2xl transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110">
+            🪐
+          </span>
           <span>PlutoLab</span>
-        </div>
+        </Link>
 
         <div className="relative z-20 flex flex-1 items-end justify-center">
           <CharacterScene typing={typing} hidingEyes={hidingEyes} />
@@ -40,13 +47,17 @@ export function AuthShell({ typing, hidingEyes, children }: AuthShellProps) {
       {/* 右栏：表单 — 淡淡品牌色过渡, 和左栏同色系不割裂 */}
       <div className="flex items-center justify-center bg-gradient-to-br from-violet-50 via-background to-fuchsia-50/60 p-8 dark:from-violet-950/30 dark:via-background dark:to-fuchsia-950/20">
         <div className="w-full max-w-[420px]">
-          {/* 移动端 logo */}
-          <div className="mb-12 flex items-center justify-center gap-2 text-lg font-semibold lg:hidden">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
+          {/* 移动端 logo — 可点击回主页 */}
+          <Link
+            href="/"
+            className="group mb-12 flex items-center justify-center gap-2 text-lg font-semibold transition-opacity hover:opacity-80 lg:hidden"
+            aria-label="返回首页"
+          >
+            <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 transition-transform group-hover:scale-105">
               <Sparkles className="size-4 text-primary" />
             </div>
             <span>PlutoLab</span>
-          </div>
+          </Link>
           {children}
         </div>
       </div>
