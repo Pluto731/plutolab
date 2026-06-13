@@ -28,8 +28,8 @@ export default function LoginPage() {
     try {
       const tokens = await login({ email, password });
       storeTokens(tokens);
-      // 整页跳转, 让 Nav 重新读取登录态
-      window.location.assign("/");
+      // 整页跳转到工作台, 让 Nav 重新读取登录态
+      window.location.assign("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "登录失败，请稍后重试");
       setIsLoading(false);

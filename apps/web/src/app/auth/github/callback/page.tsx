@@ -33,7 +33,7 @@ export default function GitHubCallbackPage() {
     githubLogin(code, redirectUri)
       .then((tokens) => {
         storeTokens(tokens);
-        window.location.assign("/");
+        window.location.assign("/dashboard");
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : "GitHub 登录失败");

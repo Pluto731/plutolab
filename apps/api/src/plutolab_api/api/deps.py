@@ -44,3 +44,26 @@ async def current_user(
 
 
 CurrentUser = Annotated[User, Depends(current_user)]
+
+
+async def optional_user(
+    creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> User | None:
+    """Like `current_user` but returns None on any auth failure instead of 401.
+
+    Use for endpoints that adapt their response based on login state but don't
+    require authentication (e.g. dashboard summary showing demo data for guests)."""
+    if creds is None:
+        return None
+    try:
+        payload = decode_token(creds.credentials)
+        user_id = UUID(payload.sub)
+    except (jwt.InvalidTokenError, ValueError):
+        return None
+    if payload.type != ACCESS_TOKEN:
+        return None
+    return await db.get(User, user_id)
+
+
+OptionalUser = Annotated[User | None, Depends(optional_user)]
