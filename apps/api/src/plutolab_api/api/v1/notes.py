@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from plutolab_api.api.deps import CurrentUser
 from plutolab_api.core.logging import get_logger
+from plutolab_api.core.sample_note import create_sample_note
 from plutolab_api.db.deps import get_db
 from plutolab_api.models.note import Note
 from plutolab_api.schemas.note import (
@@ -56,6 +57,14 @@ async def list_notes(user: CurrentUser, db: DbSession) -> list[NoteSummary]:
         .order_by(Note.updated_at.desc())
     )
     return [_to_summary(n) for n in result.all()]
+
+
+@router.post("/sample", response_model=NotePublic, status_code=status.HTTP_201_CREATED)
+async def create_sample(user: CurrentUser, db: DbSession) -> Note:
+    """注册时已自动写一条; 此端点给"删了想再要"或老用户的兜底入口."""
+    note = await create_sample_note(db, user.id)
+    logger.info("plutolab.note.sample_created", user_id=str(user.id), note_id=str(note.id))
+    return note
 
 
 @router.post("", response_model=NotePublic, status_code=status.HTTP_201_CREATED)

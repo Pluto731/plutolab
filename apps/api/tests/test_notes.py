@@ -4,8 +4,12 @@ from uuid import uuid4
 
 from httpx import AsyncClient
 
+from plutolab_api.core.config import settings
+from plutolab_api.core.sample_note import SAMPLE_NOTE_TITLE
+
 REGISTER = "/api/v1/auth/register"
 NOTES = "/api/v1/notes"
+SAMPLE = "/api/v1/notes/sample"
 
 
 async def _register_and_token(client: AsyncClient, email: str) -> str:
@@ -203,3 +207,28 @@ class TestAuthAndIsolation:
         note_id = created.json()["id"]
         resp = await client.delete(f"{NOTES}/{note_id}", headers=bob)
         assert resp.status_code == 404
+
+
+class TestSampleNote:
+    async def test_sample_endpoint_creates_with_expected_title(
+        self, client: AsyncClient
+    ) -> None:
+        h = await _auth(client, "sample-user@example.com")
+        resp = await client.post(SAMPLE, headers=h)
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["title"] == SAMPLE_NOTE_TITLE
+        assert "Markdown" in body["content"]
+
+    async def test_sample_requires_auth(self, client: AsyncClient) -> None:
+        assert (await client.post(SAMPLE)).status_code == 401
+
+    async def test_register_seeds_sample_when_onboarding_enabled(
+        self, client: AsyncClient, monkeypatch
+    ) -> None:
+        # 用 monkeypatch 重新打开 onboarding (conftest autouse 默认关掉)
+        monkeypatch.setattr(settings, "onboarding_sample_note", True)
+        h = await _auth(client, "onboarded@example.com")
+        items = (await client.get(NOTES, headers=h)).json()
+        assert len(items) == 1
+        assert items[0]["title"] == SAMPLE_NOTE_TITLE

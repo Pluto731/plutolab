@@ -126,6 +126,12 @@ async def fake_mailer() -> FakeMailer:
     return FakeMailer()
 
 
+@pytest_asyncio.fixture(autouse=True)
+def _disable_onboarding_sample_note(monkeypatch) -> None:
+    """关掉注册时自动写入示例笔记 — 保持"新用户 0 笔记"测试前提."""
+    monkeypatch.setattr(settings, "onboarding_sample_note", False)
+
+
 @pytest_asyncio.fixture
 async def client(
     db_session: AsyncSession,

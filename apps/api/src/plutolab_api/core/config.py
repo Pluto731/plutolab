@@ -71,5 +71,9 @@ class Settings(BaseSettings):
     # dev 默认值不安全 (是从已知字符串 b64 来的), 启动时 log warning 提醒生产换
     fernet_key: str = Field(default="cGx1dG9sYWJfZGV2X2luc2VjdXJlX2tleV94eF8xMjM=")
 
+    # Onboarding: 注册成功后是否自动写入示例笔记 (Phase 3.1.polish A.1-4)
+    # 生产/dev 都 True; 测试用 pytest fixture 关掉 (避免"新用户 0 笔记"前提失效)
+    onboarding_sample_note: bool = Field(default=True)
+
 
 settings = Settings()

@@ -15,6 +15,7 @@ from plutolab_api.core.email import Mailer, get_mailer
 from plutolab_api.core.github_oauth import exchange_code
 from plutolab_api.core.logging import get_logger
 from plutolab_api.core.redis import get_redis
+from plutolab_api.core.sample_note import create_sample_note
 from plutolab_api.core.security import (
     create_access_token,
     create_refresh_token,
@@ -114,6 +115,17 @@ async def register(
             error=str(e),
         )
 
+    # Onboarding: 写入示例笔记, 让新用户首次进 /notes 不空 — 失败不挡注册
+    if settings.onboarding_sample_note:
+        try:
+            await create_sample_note(db, user.id)
+        except Exception as e:
+            logger.warning(
+                "plutolab.auth.register.sample_note_failed",
+                user_id=str(user.id),
+                error=str(e),
+            )
+
     return _tokens_for(user)
 
 
@@ -153,7 +165,8 @@ async def github_login(body: GitHubLoginRequest, db: DbSession) -> TokenResponse
             user.github_id = gh.id
             if not user.avatar:
                 user.avatar = gh.avatar
-    if user is None:
+    is_new = user is None
+    if is_new:
         user = User(
             email=gh.email or f"gh_{gh.id}@users.noreply.github.com",
             github_id=gh.id,
@@ -165,6 +178,18 @@ async def github_login(body: GitHubLoginRequest, db: DbSession) -> TokenResponse
 
     await db.commit()
     await db.refresh(user)
+
+    # 新 GitHub 用户也加示例笔记
+    if is_new and settings.onboarding_sample_note:
+        try:
+            await create_sample_note(db, user.id)
+        except Exception as e:
+            logger.warning(
+                "plutolab.auth.github.sample_note_failed",
+                user_id=str(user.id),
+                error=str(e),
+            )
+
     return _tokens_for(user)
 
 
