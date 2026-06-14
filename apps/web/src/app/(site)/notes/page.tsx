@@ -11,6 +11,7 @@ import {
   Save,
   Sparkles,
   Trash2,
+  Wand2,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -20,6 +21,7 @@ import { useAuthUser } from "@/components/auth/use-auth";
 import { Button } from "@/components/ui/button";
 import {
   createNote,
+  createSampleNote,
   deleteNote,
   getNote,
   listNotes,
@@ -106,6 +108,14 @@ export default function NotesPage() {
     },
   });
 
+  const sampleMutation = useMutation({
+    mutationFn: createSampleNote,
+    onSuccess: (note) => {
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      setSelected(note.id);
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: deleteNote,
     onSuccess: () => {
@@ -145,6 +155,8 @@ export default function NotesPage() {
           onSelect={setSelected}
           onCreate={() => createMutation.mutate()}
           createPending={createMutation.isPending}
+          onLoadSample={() => sampleMutation.mutate()}
+          samplePending={sampleMutation.isPending}
         />
 
         {/* 右栏 — 预览/编辑 (md+) */}
@@ -257,6 +269,8 @@ function NotesListColumn({
   onSelect,
   onCreate,
   createPending,
+  onLoadSample,
+  samplePending,
 }: {
   notes: NoteSummary[];
   isLoading: boolean;
@@ -264,6 +278,8 @@ function NotesListColumn({
   onSelect: (id: string) => void;
   onCreate: () => void;
   createPending: boolean;
+  onLoadSample: () => void;
+  samplePending: boolean;
 }) {
   return (
     <section className="flex w-full shrink-0 flex-col md:w-[22rem] md:border-r md:border-white/40 dark:md:border-white/[0.05]">
@@ -291,7 +307,12 @@ function NotesListColumn({
             <Loader2 className="mr-2 size-4 animate-spin" /> 加载中…
           </div>
         ) : notes.length === 0 ? (
-          <EmptyListState onCreate={onCreate} pending={createPending} />
+          <EmptyListState
+            onCreate={onCreate}
+            pending={createPending}
+            onLoadSample={onLoadSample}
+            samplePending={samplePending}
+          />
         ) : (
           <ul className="divide-y divide-white/30 dark:divide-white/[0.04]">
             {notes.map((n) => {
@@ -365,9 +386,13 @@ function ListItem({
 function EmptyListState({
   onCreate,
   pending,
+  onLoadSample,
+  samplePending,
 }: {
   onCreate: () => void;
   pending: boolean;
+  onLoadSample: () => void;
+  samplePending: boolean;
 }) {
   return (
     <div className="relative overflow-hidden px-6 py-16 text-center">
@@ -378,16 +403,31 @@ function EmptyListState({
         </div>
         <h3 className="text-base font-semibold">还没有笔记</h3>
         <p className="mt-1 text-xs text-muted-foreground">想到就写。第一个想法不必完美。</p>
-        <Button
-          type="button"
-          size="sm"
-          onClick={onCreate}
-          disabled={pending}
-          className="mt-5 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-md shadow-fuchsia-500/30 hover:brightness-110"
-        >
-          {pending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-          写第一个
-        </Button>
+        <div className="mt-5 flex flex-col items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            onClick={onCreate}
+            disabled={pending || samplePending}
+            className="bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-md shadow-fuchsia-500/30 hover:brightness-110"
+          >
+            {pending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+            写第一个
+          </Button>
+          <button
+            type="button"
+            onClick={onLoadSample}
+            disabled={pending || samplePending}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-violet-600 disabled:opacity-50 dark:hover:text-violet-400"
+          >
+            {samplePending ? (
+              <Loader2 className="size-3 animate-spin" />
+            ) : (
+              <Wand2 className="size-3" />
+            )}
+            或载入示例笔记看长什么样
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -537,14 +577,14 @@ function PreviewBody({
         </div>
       </div>
 
-      {/* 标题 */}
+      {/* 标题 — Lora 衬线字, 读书感 */}
       <input
         type="text"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         maxLength={200}
         placeholder="无标题笔记"
-        className="border-0 bg-transparent px-5 pt-6 text-3xl font-bold tracking-tight placeholder:text-muted-foreground/50 focus:outline-none"
+        className="border-0 bg-transparent px-5 pt-6 font-serif text-3xl font-semibold tracking-tight placeholder:text-muted-foreground/50 focus:outline-none"
       />
 
       {/* 正文 */}

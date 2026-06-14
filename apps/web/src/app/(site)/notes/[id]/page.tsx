@@ -159,14 +159,14 @@ export default function NoteEditorPage({
         </div>
       </div>
 
-      {/* 标题 */}
+      {/* 标题 — Lora 衬线字, 读书感 */}
       <input
         type="text"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         maxLength={200}
         placeholder="无标题笔记"
-        className="w-full border-0 bg-transparent text-3xl font-bold tracking-tight placeholder:text-muted-foreground/50 focus:outline-none"
+        className="w-full border-0 bg-transparent font-serif text-4xl font-semibold tracking-tight placeholder:text-muted-foreground/50 focus:outline-none"
       />
 
       {/* 元信息 */}

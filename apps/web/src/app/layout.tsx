@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Lora } from "next/font/google";
 
 import { QueryProvider } from "@/components/query-provider";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -16,6 +16,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Phase 3.1.polish A.1-4: 笔记标题用 Lora 衬线字, 读书感
+// 中文 fallback 到系统衬线 (Songti / 宋体), Lora 不含中文 glyph
+const lora = Lora({
+  variable: "--font-serif",
+  subsets: ["latin"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "PlutoLab — Your AI Workshop",
   description: "一站式 AI 工作台：RAG 问答 / AI 代码评审 / 多 Agent / 笔记 / 画作收藏",
@@ -28,7 +36,7 @@ export default function RootLayout({
     <html
       lang="zh-CN"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${lora.variable} h-full antialiased`}
     >
       <body className="relative min-h-full overflow-x-hidden">
         <ThemeProvider

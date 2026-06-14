@@ -27,26 +27,29 @@
   --radius: 0.625rem;
 }
 
+/* Dark mode — Phase 3.1.polish A.1-4: 加 violet 色温偏移 (hue 285) + 微 chroma,
+ * 让纯黑/纯灰变"高级灰", 视觉更克制温和. Hue 与品牌主色一致, 让深色面板和紫色辉光融合.
+ */
 .dark {
-  --background: oklch(0.145 0 0);
+  --background: oklch(0.155 0.012 285);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
+  --card: oklch(0.215 0.013 285);
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
+  --popover: oklch(0.215 0.013 285);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
+  --primary-foreground: oklch(0.215 0.013 285);
+  --secondary: oklch(0.275 0.012 285);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --muted: oklch(0.275 0.012 285);
+  --muted-foreground: oklch(0.72 0 0);
+  --accent: oklch(0.275 0.012 285);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --ring: oklch(0.6 0.1 285);
 }
 
 @theme inline {
@@ -77,6 +80,9 @@
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  /* Lora 衬线字 — 笔记标题 / 长文场景用, "读书感" */
+  --font-serif: var(--font-serif), "Songti SC", "Songti TC", "Noto Serif CJK SC",
+    "Source Han Serif SC", serif;
 
   /* 自定义动画 (保留 Phase 1 之前加的) */
   --animate-shine: shine 5s linear infinite;
