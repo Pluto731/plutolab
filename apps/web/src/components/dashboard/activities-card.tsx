@@ -1,6 +1,7 @@
 "use client";
 
-import { Activity, Bot, FileText, ImageIcon, MessageSquare, ScrollText } from "lucide-react";
+import { Activity, ArrowUpRight, Bot, FileText, ImageIcon, MessageSquare, ScrollText } from "lucide-react";
+import Link from "next/link";
 
 import type { ActivityItem } from "@/lib/dashboard";
 
@@ -52,11 +53,10 @@ export function ActivitiesCard({ items }: { items: ActivityItem[] }) {
           {items.map((a, i) => {
             const meta = KIND_META[a.kind] ?? KIND_META.note;
             const Icon = meta.icon;
-            return (
-              <li
-                key={i}
-                className="flex items-center gap-3 rounded-xl px-2 py-1.5 transition-colors hover:bg-muted/50"
-              >
+            // 笔记类活动有 id 时可跳转到编辑页
+            const href = a.kind === "note" && a.id ? `/notes/${a.id}` : null;
+            const inner = (
+              <>
                 <div
                   className={`flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${meta.color} shadow-sm`}
                 >
@@ -68,6 +68,25 @@ export function ActivitiesCard({ items }: { items: ActivityItem[] }) {
                     {meta.label} · {relativeTime(a.timestamp)}
                   </p>
                 </div>
+                {href && (
+                  <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/row:opacity-100" />
+                )}
+              </>
+            );
+            return (
+              <li key={i}>
+                {href ? (
+                  <Link
+                    href={href}
+                    className="group/row flex items-center gap-3 rounded-xl px-2 py-1.5 transition-colors hover:bg-muted/50"
+                  >
+                    {inner}
+                  </Link>
+                ) : (
+                  <div className="group/row flex items-center gap-3 rounded-xl px-2 py-1.5 transition-colors hover:bg-muted/50">
+                    {inner}
+                  </div>
+                )}
               </li>
             );
           })}

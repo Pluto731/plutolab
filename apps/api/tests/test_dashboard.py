@@ -14,6 +14,8 @@ _REQUIRED_FIELDS = {
     "images_count",
     "tokens_this_month",
     "tokens_limit",
+    "today_words",
+    "writing_streak",
     "recent_activities",
 }
 
@@ -43,6 +45,9 @@ class TestUnauthenticated:
         assert resp.json()["is_authenticated"] is False
 
 
+NOTES = "/api/v1/notes"
+
+
 class TestAuthenticated:
     async def test_returns_real_zero_counts(self, client: AsyncClient) -> None:
         reg = await client.post(
@@ -54,12 +59,76 @@ class TestAuthenticated:
         assert resp.status_code == 200
         body = resp.json()
         assert body["is_authenticated"] is True
-        # Phase 3/4/7 还没做, 所有真实计数应该是 0
+        # 新用户没数据, 所有真实计数应该是 0
         assert body["notes_count"] == 0
         assert body["tasks_count"] == 0
         assert body["rag_docs_count"] == 0
         assert body["tokens_this_month"] == 0
+        assert body["today_words"] == 0
+        assert body["writing_streak"] == 0
         assert body["recent_activities"] == []
+
+    async def test_notes_count_reflects_real_notes(self, client: AsyncClient) -> None:
+        reg = await client.post(
+            REGISTER, json={"email": "notes-count@example.com", "password": "supersecret"}
+        )
+        h = {"Authorization": f"Bearer {reg.json()['access_token']}"}
+        for i in range(3):
+            await client.post(NOTES, headers=h, json={"title": f"笔记 {i}", "content": "abc"})
+        body = (await client.get(SUMMARY, headers=h)).json()
+        assert body["notes_count"] == 3
+
+    async def test_recent_activities_returns_recent_notes(
+        self, client: AsyncClient
+    ) -> None:
+        reg = await client.post(
+            REGISTER, json={"email": "recent@example.com", "password": "supersecret"}
+        )
+        h = {"Authorization": f"Bearer {reg.json()['access_token']}"}
+        created = await client.post(NOTES, headers=h, json={"title": "唯一", "content": "x"})
+        note_id = created.json()["id"]
+        body = (await client.get(SUMMARY, headers=h)).json()
+        assert len(body["recent_activities"]) == 1
+        act = body["recent_activities"][0]
+        assert act["kind"] == "note"
+        assert act["title"] == "唯一"
+        assert act["id"] == note_id
+
+    async def test_today_words_sums_content_length(self, client: AsyncClient) -> None:
+        reg = await client.post(
+            REGISTER, json={"email": "wordcount@example.com", "password": "supersecret"}
+        )
+        h = {"Authorization": f"Bearer {reg.json()['access_token']}"}
+        await client.post(NOTES, headers=h, json={"title": "A", "content": "hello"})  # 5
+        await client.post(NOTES, headers=h, json={"title": "B", "content": "world!"})  # 6
+        body = (await client.get(SUMMARY, headers=h)).json()
+        assert body["today_words"] == 11
+
+    async def test_writing_streak_today_is_one(self, client: AsyncClient) -> None:
+        reg = await client.post(
+            REGISTER, json={"email": "streak@example.com", "password": "supersecret"}
+        )
+        h = {"Authorization": f"Bearer {reg.json()['access_token']}"}
+        await client.post(NOTES, headers=h, json={"title": "今天"})
+        body = (await client.get(SUMMARY, headers=h)).json()
+        assert body["writing_streak"] == 1
+
+    async def test_recent_activities_isolated_per_user(
+        self, client: AsyncClient
+    ) -> None:
+        a = await client.post(
+            REGISTER, json={"email": "iso-a@example.com", "password": "supersecret"}
+        )
+        b = await client.post(
+            REGISTER, json={"email": "iso-b@example.com", "password": "supersecret"}
+        )
+        ha = {"Authorization": f"Bearer {a.json()['access_token']}"}
+        hb = {"Authorization": f"Bearer {b.json()['access_token']}"}
+        await client.post(NOTES, headers=ha, json={"title": "alice"})
+        body_b = (await client.get(SUMMARY, headers=hb)).json()
+        # b 看不见 a 的笔记
+        assert body_b["notes_count"] == 0
+        assert body_b["recent_activities"] == []
 
 
 class TestSchema:

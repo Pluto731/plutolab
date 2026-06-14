@@ -2,13 +2,16 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Bot, FileText, ImageIcon, Loader2, ScrollText } from "lucide-react";
+import { Bot, ImageIcon, Loader2, ScrollText } from "lucide-react";
 
 import { useAuthUser } from "@/components/auth/use-auth";
 import { ActivitiesCard } from "@/components/dashboard/activities-card";
 import { HeroCard } from "@/components/dashboard/hero-card";
+import { NotesPanel } from "@/components/dashboard/notes-panel";
 import { StatCard } from "@/components/dashboard/stat-card";
+import { StreakCard } from "@/components/dashboard/streak-card";
 import { TasksCard } from "@/components/dashboard/tasks-card";
+import { TodayCard } from "@/components/dashboard/today-card";
 import { TokensCard } from "@/components/dashboard/tokens-card";
 import { type DashboardSummary, fetchDashboard } from "@/lib/dashboard";
 
@@ -18,7 +21,7 @@ const STAGGER = {
 };
 const STAGGER_TRANSITION = (i: number) => ({
   duration: 0.5,
-  delay: i * 0.08,
+  delay: i * 0.07,
   ease: [0.16, 1, 0.3, 1] as [number, number, number, number],
 });
 
@@ -65,12 +68,21 @@ export default function DashboardPage() {
         </motion.div>
       )}
 
-      {/* Bento 12 列 — 真非对称: 7×2 / 5×1 / 5×1 / 4×1 / 3×1 / 2×1 / 3×1 / 12×1
-       * (Hero 7×2 主焦点, 右侧 Tokens 5×1 + Tasks 5×1 上下叠拼成 5×2, 第二行
-       * 数据卡尺寸 4/3/2/3 阶梯式变化, 最后 Activities 12×1 横向铺满)
-       * 移动单列从上往下顺次. */}
+      {/*
+        12 列 bento — A.1-3 重排:
+          Row 1-2: [Hero 7×2]                 [TodayCard 5×1]
+                                              [StreakCard 5×1]
+          Row 3-4: [NotesPanel 7×2]           [TokensCard 5×1]
+                                              [TasksCard 5×1]
+          Row 5:   [StatCard RAG 4] [Agent 4] [Image 4]
+          Row 6:   [Activities 12×1]
+
+        让"笔记"成为视觉第二主角 (NotesPanel 7×2), Hero 仍是第一主角.
+        Today/Streak 在 Hero 右侧, 形成"今日写作进度"叙事块.
+        移动端 grid-cols-1 自然顺次, 顺序天然合理.
+      */}
       <div className="grid auto-rows-[minmax(140px,auto)] grid-cols-1 gap-4 md:grid-cols-12">
-        {/* Hero 主卡 — 7×2, 左大 */}
+        {/* Hero 7×2 — 仍是主焦点 */}
         <motion.div
           {...STAGGER}
           transition={STAGGER_TRANSITION(0)}
@@ -79,27 +91,37 @@ export default function DashboardPage() {
           <HeroCard name={user?.name ?? null} />
         </motion.div>
 
-        {/* Tokens — 5×1, Hero 右上 */}
+        {/* TodayCard 5×1 — Hero 右上 */}
         <motion.div {...STAGGER} transition={STAGGER_TRANSITION(1)} className="md:col-span-5">
+          <TodayCard words={data.today_words} />
+        </motion.div>
+
+        {/* StreakCard 5×1 — Hero 右下 */}
+        <motion.div {...STAGGER} transition={STAGGER_TRANSITION(2)} className="md:col-span-5">
+          <StreakCard days={data.writing_streak} />
+        </motion.div>
+
+        {/* NotesPanel 7×2 — 笔记升级到大卡 (代替原 StatCard 笔记格) */}
+        <motion.div
+          {...STAGGER}
+          transition={STAGGER_TRANSITION(3)}
+          className="md:col-span-7 md:row-span-2"
+        >
+          <NotesPanel count={data.notes_count} recent={data.recent_activities} />
+        </motion.div>
+
+        {/* TokensCard 5×1 — Notes 右上 */}
+        <motion.div {...STAGGER} transition={STAGGER_TRANSITION(4)} className="md:col-span-5">
           <TokensCard used={data.tokens_this_month} limit={data.tokens_limit} />
         </motion.div>
 
-        {/* Tasks — 5×1, Hero 右下 (跟 Tokens 上下叠拼成 Hero 等高) */}
-        <motion.div {...STAGGER} transition={STAGGER_TRANSITION(2)} className="md:col-span-5">
+        {/* TasksCard 5×1 — Notes 右下 */}
+        <motion.div {...STAGGER} transition={STAGGER_TRANSITION(5)} className="md:col-span-5">
           <TasksCard count={data.tasks_count} />
         </motion.div>
 
-        {/* 4 张数据卡 — 尺寸阶梯式 4/3/2/3, 节奏感非对称 */}
-        <motion.div {...STAGGER} transition={STAGGER_TRANSITION(3)} className="md:col-span-4">
-          <StatCard
-            icon={FileText}
-            iconGradient="from-violet-500 to-fuchsia-500"
-            label="笔记"
-            value={data.notes_count}
-            emptyHint="Phase 3 还没做"
-          />
-        </motion.div>
-        <motion.div {...STAGGER} transition={STAGGER_TRANSITION(4)} className="md:col-span-3">
+        {/* Row 5: 3 张小 StatCard 均分 (4/4/4), 比之前 4/3/2/3 整齐, 笔记格已撤 */}
+        <motion.div {...STAGGER} transition={STAGGER_TRANSITION(6)} className="md:col-span-4">
           <StatCard
             icon={ScrollText}
             iconGradient="from-blue-500 to-cyan-500"
@@ -108,7 +130,7 @@ export default function DashboardPage() {
             emptyHint="Phase 4 上线时启用"
           />
         </motion.div>
-        <motion.div {...STAGGER} transition={STAGGER_TRANSITION(5)} className="md:col-span-2">
+        <motion.div {...STAGGER} transition={STAGGER_TRANSITION(7)} className="md:col-span-4">
           <StatCard
             icon={Bot}
             iconGradient="from-indigo-500 to-violet-500"
@@ -117,7 +139,7 @@ export default function DashboardPage() {
             emptyHint="Phase 6"
           />
         </motion.div>
-        <motion.div {...STAGGER} transition={STAGGER_TRANSITION(6)} className="md:col-span-3">
+        <motion.div {...STAGGER} transition={STAGGER_TRANSITION(8)} className="md:col-span-4">
           <StatCard
             icon={ImageIcon}
             iconGradient="from-pink-500 to-rose-500"
@@ -128,7 +150,7 @@ export default function DashboardPage() {
         </motion.div>
 
         {/* 最近活动 — 12×1 横向铺满, 整页收尾 */}
-        <motion.div {...STAGGER} transition={STAGGER_TRANSITION(7)} className="md:col-span-12">
+        <motion.div {...STAGGER} transition={STAGGER_TRANSITION(9)} className="md:col-span-12">
           <ActivitiesCard items={data.recent_activities} />
         </motion.div>
       </div>

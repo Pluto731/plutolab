@@ -5,6 +5,8 @@ export interface ActivityItem {
   kind: "note" | "task" | "rag" | "image" | "agent" | "chat";
   title: string;
   timestamp: string;
+  /** 可跳转实体的 id (笔记/任务). 展示性活动可缺省. */
+  id?: string;
 }
 
 export interface DashboardSummary {
@@ -16,6 +18,8 @@ export interface DashboardSummary {
   images_count: number;
   tokens_this_month: number;
   tokens_limit: number;
+  today_words: number;
+  writing_streak: number;
   recent_activities: ActivityItem[];
 }
 
