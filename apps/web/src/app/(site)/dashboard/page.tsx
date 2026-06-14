@@ -42,7 +42,7 @@ export default function DashboardPage() {
   const isAnonPreview = !data.is_authenticated;
 
   return (
-    <main className="mx-auto max-w-7xl px-4 pb-24 pt-24 md:px-6">
+    <main className="mx-auto max-w-7xl px-4 pb-24 pt-20 md:px-6 md:pt-10">
       {/* 顶部访客横幅 — 仅未登录 (说明数据是演示性的) */}
       {isAnonPreview && (
         <motion.div

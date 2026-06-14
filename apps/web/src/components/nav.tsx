@@ -24,6 +24,10 @@ export function Nav() {
   const pathname = usePathname();
   const { user, logout } = useAuthUser();
 
+  // Sidebar 已接管所有应用页 (Phase 3.1.polish A.1)
+  // 顶部 Nav 仅在营销首页 `/` 显示, 保持 hero 全宽视觉
+  if (pathname !== "/") return null;
+
   // 已登录时第一项变 "工作台 → /dashboard", 未登录时是 "首页 → /"
   // (避免登录后 nav 还把人引回 marketing 首页)
   const navItems = [

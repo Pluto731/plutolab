@@ -107,7 +107,7 @@ export default function NoteEditorPage({
 
   if (error || !note) {
     return (
-      <main className="mx-auto max-w-2xl px-6 pb-24 pt-28 text-center">
+      <main className="mx-auto max-w-2xl px-6 pb-24 pt-20 text-center md:pt-10">
         <h1 className="text-xl font-semibold">笔记不存在</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           它可能已被删除，或属于其他账号。
@@ -131,9 +131,9 @@ export default function NoteEditorPage({
   };
 
   return (
-    <main className="mx-auto max-w-3xl px-6 pb-24 pt-24">
+    <main className="mx-auto max-w-3xl px-6 pb-24 pt-20 md:pt-10">
       {/* 工具栏 */}
-      <div className="sticky top-20 z-10 -mx-2 mb-6 flex items-center justify-between gap-3 rounded-2xl border border-white/40 bg-white/70 px-4 py-2.5 backdrop-blur-xl dark:border-white/10 dark:bg-black/40">
+      <div className="sticky top-16 z-10 -mx-2 mb-6 flex items-center justify-between gap-3 rounded-2xl border border-white/40 bg-white/70 px-4 py-2.5 backdrop-blur-xl md:top-4 dark:border-white/10 dark:bg-black/40">
         <button
           type="button"
           onClick={() => router.push("/notes")}

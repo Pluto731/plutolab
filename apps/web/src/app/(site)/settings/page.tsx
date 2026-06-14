@@ -151,7 +151,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <main className="mx-auto max-w-2xl px-6 pb-24 pt-28">
+    <main className="mx-auto max-w-2xl px-6 pb-24 pt-20 md:pt-10">
       {/* 顶部用户概览 */}
       <header className="relative mb-8 overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-violet-500/90 via-fuchsia-500/90 to-pink-500/90 p-6 text-white shadow-lg dark:border-white/10">
         <div className="pointer-events-none absolute -right-8 -top-10 size-40 rounded-full bg-white/15 blur-2xl" />
