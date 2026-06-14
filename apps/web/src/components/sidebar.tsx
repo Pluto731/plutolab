@@ -217,12 +217,9 @@ export function Sidebar() {
               </Link>
             </div>
           )}
-          {/* 状态条 — 主题 + API */}
-          <div className="mt-3 flex items-center justify-between px-2 pt-2 border-t border-white/20 dark:border-white/[0.04]">
-            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-              <ApiStatusDot />
-              <span>API</span>
-            </div>
+          {/* 状态条 — API 健康胶囊 + 主题切换 */}
+          <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/20 pt-3 dark:border-white/[0.04]">
+            <ApiStatusDot />
             <ThemeToggle />
           </div>
         </div>
