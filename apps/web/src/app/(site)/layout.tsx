@@ -4,13 +4,14 @@ import { Nav } from "@/components/nav";
 import { PageTransition } from "@/components/page-transition";
 import { ScrollProgress } from "@/components/scroll-progress";
 import { Sidebar } from "@/components/sidebar";
+import { SiteShell } from "@/components/site-shell";
 
 /**
  * 路由布局: 主体两类页面
- * - 营销首页 `/`: 全宽展示, 顶部老 Nav (Sidebar 内部已用 pathname 判断在 `/` 不渲染)
+ * - 营销首页 `/`: 全宽展示, 顶部老 Nav (Sidebar/SiteShell 都按 pathname 判断在 `/` 不缩进)
  * - 应用页 `/dashboard /notes /settings ...`: 左侧 sidebar + 主内容区左 padding
  *
- * Nav 和 Sidebar 都挂着, 自行根据 pathname 决定显隐, 避免 layout 层做客户端切换闪屏.
+ * Nav / Sidebar / SiteShell 都挂着, 各自根据 pathname 决定显隐 / 缩进, 避免 layout 层 client 切换闪屏.
  */
 export default function SiteLayout({
   children,
@@ -22,10 +23,9 @@ export default function SiteLayout({
       <Nav />
       <Sidebar />
       <CommandPalette />
-      {/* 桌面端 sidebar 留 240px, 移动端 sidebar 是抽屉, 主体仍占满 */}
-      <div className="md:pl-60">
+      <SiteShell>
         <PageTransition>{children}</PageTransition>
-      </div>
+      </SiteShell>
     </>
   );
 }
