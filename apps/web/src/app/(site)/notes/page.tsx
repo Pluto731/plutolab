@@ -1,13 +1,39 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import {
+  Calendar,
+  Clock4,
+  FileText,
+  Loader2,
+  Maximize2,
+  Plus,
+  Save,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
 import { useAuthUser } from "@/components/auth/use-auth";
 import { Button } from "@/components/ui/button";
-import { createNote, deleteNote, listNotes, type NoteSummary } from "@/lib/notes";
+import {
+  createNote,
+  deleteNote,
+  getNote,
+  listNotes,
+  type NotePublic,
+  type NoteSummary,
+  updateNote,
+} from "@/lib/notes";
+import { cn } from "@/lib/utils";
+
+type Filter = "all" | "today" | "week";
+
+function startOfDay(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
 
 function formatRelative(iso: string): string {
   const now = Date.now();
@@ -23,13 +49,24 @@ function formatRelative(iso: string): string {
 
 export default function NotesPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { user, loading, mounted } = useAuthUser();
 
-  // 未登录跳 /login (沿用 settings 页范式)
   useEffect(() => {
     if (mounted && !loading && !user) router.replace("/login");
   }, [mounted, loading, user, router]);
+
+  const selectedId = searchParams.get("id");
+
+  const setSelected = (id: string | null) => {
+    const sp = new URLSearchParams(Array.from(searchParams.entries()));
+    if (id) sp.set("id", id);
+    else sp.delete("id");
+    const qs = sp.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  };
 
   const { data: notes, isLoading } = useQuery<NoteSummary[]>({
     queryKey: ["notes"],
@@ -38,17 +75,43 @@ export default function NotesPage() {
     staleTime: 10 * 1000,
   });
 
+  // 桌面端自动选中第一条 (列表非空且没选). 移动端不自动选 — 因为右栏不显示, 用户应该看到列表全貌.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.innerWidth < 768) return;
+    if (notes && notes.length > 0 && !selectedId) {
+      setSelected(notes[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notes]);
+
+  const [filter, setFilter] = useState<Filter>("all");
+
+  const filteredNotes = useMemo(() => {
+    if (!notes) return [];
+    const now = Date.now();
+    return notes.filter((n) => {
+      const t = new Date(n.updated_at).getTime();
+      if (filter === "today") return t >= startOfDay(new Date(now));
+      if (filter === "week") return t >= now - 7 * 86400 * 1000;
+      return true;
+    });
+  }, [notes, filter]);
+
   const createMutation = useMutation({
     mutationFn: () => createNote({ title: "无标题笔记", content: "" }),
     onSuccess: (note) => {
       queryClient.invalidateQueries({ queryKey: ["notes"] });
-      router.push(`/notes/${note.id}`);
+      setSelected(note.id);
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: deleteNote,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notes"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      setSelected(null);
+    },
   });
 
   if (!user) {
@@ -59,117 +122,467 @@ export default function NotesPage() {
     );
   }
 
-  const onDelete = async (e: React.MouseEvent, id: string, title: string) => {
-    e.stopPropagation();
-    e.preventDefault();
-    if (!confirm(`确定删除「${title}」？删除后不可恢复。`)) return;
-    deleteMutation.mutate(id);
-  };
-
   return (
-    <main className="mx-auto max-w-5xl px-6 pb-24 pt-20 md:pt-10">
-      {/* 头部 — 渐变胶囊 */}
-      <header className="relative mb-8 overflow-hidden rounded-3xl border border-white/40 bg-gradient-to-br from-indigo-500/90 via-violet-500/90 to-fuchsia-500/90 p-6 text-white shadow-lg dark:border-white/10">
-        <div className="pointer-events-none absolute -right-10 -top-12 size-44 rounded-full bg-white/15 blur-2xl" />
-        <div className="pointer-events-none absolute -bottom-12 left-1/3 size-40 rounded-full bg-fuchsia-300/30 blur-3xl" />
-        <div className="relative flex items-end justify-between gap-4">
-          <div className="min-w-0">
-            <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-medium backdrop-blur">
-              <Sparkles className="size-3" />
-              Phase 3.1 · MVP
-            </div>
-            <h1 className="truncate text-2xl font-bold">笔记</h1>
-            <p className="mt-1 text-sm text-white/85">
-              想到就写。一切从这里开始。
-            </p>
-          </div>
-          <Button
-            type="button"
-            onClick={() => createMutation.mutate()}
-            disabled={createMutation.isPending}
-            className="shrink-0 bg-white text-violet-600 shadow-md hover:bg-white/90 hover:text-violet-700"
-          >
-            {createMutation.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Plus className="size-4" />
-            )}
-            新建笔记
-          </Button>
-        </div>
-      </header>
+    <main className="px-3 pt-20 pb-6 md:px-6 md:pt-10">
+      <div
+        className="mx-auto flex w-full max-w-[1600px] gap-3 overflow-hidden rounded-2xl border border-white/40 bg-white/40 backdrop-blur-xl dark:border-white/[0.06] dark:bg-white/[0.02]"
+        style={{ height: "calc(100vh - 6rem)" }}
+      >
+        {/* 左栏 — 时间筛选 (仅 xl+) */}
+        <FilterColumn
+          filter={filter}
+          setFilter={setFilter}
+          notes={notes}
+          createPending={createMutation.isPending}
+          onCreate={() => createMutation.mutate()}
+        />
 
-      {/* 列表 */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">
-          <Loader2 className="mr-2 size-4 animate-spin" /> 加载中…
-        </div>
-      ) : !notes || notes.length === 0 ? (
-        <EmptyState onCreate={() => createMutation.mutate()} pending={createMutation.isPending} />
-      ) : (
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {notes.map((n) => (
-            <li key={n.id}>
-              <button
-                type="button"
-                onClick={() => router.push(`/notes/${n.id}`)}
-                className="group relative flex h-full w-full flex-col items-start gap-3 rounded-2xl border border-border bg-card/80 p-5 text-left shadow-sm backdrop-blur transition-all hover:-translate-y-0.5 hover:border-violet-300/60 hover:shadow-md dark:hover:border-violet-500/40"
-              >
-                <div className="flex w-full items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-white shadow-sm">
-                      <FileText className="size-4" />
-                    </span>
-                    <h3 className="line-clamp-1 font-semibold">{n.title}</h3>
-                  </div>
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => onDelete(e, n.id, n.title)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") onDelete(e as never, n.id, n.title);
-                    }}
-                    className="rounded-md p-1 text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
-                    aria-label="删除"
-                  >
-                    <Trash2 className="size-4" />
-                  </span>
-                </div>
-                <p className="line-clamp-4 text-sm text-muted-foreground">
-                  {n.excerpt || <span className="italic">（空笔记）</span>}
-                </p>
-                <p className="mt-auto text-xs text-muted-foreground">
-                  {formatRelative(n.updated_at)}
-                </p>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+        {/* 中栏 — 列表 */}
+        <NotesListColumn
+          notes={filteredNotes}
+          isLoading={isLoading}
+          selectedId={selectedId}
+          onSelect={setSelected}
+          onCreate={() => createMutation.mutate()}
+          createPending={createMutation.isPending}
+        />
+
+        {/* 右栏 — 预览/编辑 (md+) */}
+        <PreviewColumn
+          id={selectedId}
+          onDelete={(id) => deleteMutation.mutate(id)}
+          onCreate={() => createMutation.mutate()}
+          createPending={createMutation.isPending}
+        />
+      </div>
     </main>
   );
 }
 
-function EmptyState({ onCreate, pending }: { onCreate: () => void; pending: boolean }) {
+/* ─── 左栏 ─────────────────────────────────────────────── */
+
+function FilterColumn({
+  filter,
+  setFilter,
+  notes,
+  createPending,
+  onCreate,
+}: {
+  filter: Filter;
+  setFilter: (f: Filter) => void;
+  notes: NoteSummary[] | undefined;
+  createPending: boolean;
+  onCreate: () => void;
+}) {
+  const counts = useMemo(() => {
+    if (!notes) return { all: 0, today: 0, week: 0 };
+    const now = Date.now();
+    const sod = startOfDay(new Date(now));
+    return {
+      all: notes.length,
+      today: notes.filter((n) => new Date(n.updated_at).getTime() >= sod).length,
+      week: notes.filter(
+        (n) => new Date(n.updated_at).getTime() >= now - 7 * 86400 * 1000,
+      ).length,
+    };
+  }, [notes]);
+
+  const items: { key: Filter; label: string; icon: typeof Calendar; count: number }[] = [
+    { key: "all", label: "全部", icon: FileText, count: counts.all },
+    { key: "today", label: "今天", icon: Sparkles, count: counts.today },
+    { key: "week", label: "本周", icon: Calendar, count: counts.week },
+  ];
+
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-dashed border-border bg-gradient-to-br from-indigo-50 via-white to-fuchsia-50 py-20 text-center dark:from-indigo-950/30 dark:via-zinc-900/40 dark:to-fuchsia-950/30">
-      <div className="pointer-events-none absolute left-1/2 top-1/2 size-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-400/10 blur-3xl" />
-      <div className="relative">
-        <div className="mx-auto mb-4 inline-flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-white shadow-lg shadow-fuchsia-500/30">
-          <FileText className="size-7" />
+    <aside className="hidden w-60 shrink-0 flex-col border-r border-white/40 bg-white/30 p-4 dark:border-white/[0.05] dark:bg-white/[0.02] xl:flex">
+      <Button
+        type="button"
+        onClick={onCreate}
+        disabled={createPending}
+        className="mb-5 w-full bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-md shadow-fuchsia-500/30 hover:brightness-110"
+      >
+        {createPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+        新建笔记
+      </Button>
+
+      <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        筛选
+      </p>
+      <ul className="space-y-0.5">
+        {items.map((it) => {
+          const Icon = it.icon;
+          const active = filter === it.key;
+          return (
+            <li key={it.key}>
+              <button
+                type="button"
+                onClick={() => setFilter(it.key)}
+                className={cn(
+                  "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  active
+                    ? "bg-violet-500/15 text-zinc-900 ring-1 ring-violet-500/20 dark:bg-violet-400/15 dark:text-zinc-100 dark:ring-violet-400/25"
+                    : "text-zinc-600 hover:bg-zinc-100/60 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/[0.05] dark:hover:text-zinc-100",
+                )}
+              >
+                <Icon
+                  className={cn(
+                    "size-4 shrink-0",
+                    active && "text-violet-600 dark:text-violet-400",
+                  )}
+                />
+                <span className="flex-1 text-left">{it.label}</span>
+                <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-mono text-zinc-500 dark:bg-white/[0.06] dark:text-zinc-400">
+                  {it.count}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="mt-auto rounded-xl border border-dashed border-white/40 bg-white/30 p-3 text-xs text-muted-foreground dark:border-white/[0.05] dark:bg-white/[0.02]">
+        <p className="mb-1 font-semibold text-zinc-700 dark:text-zinc-300">提示</p>
+        Polish B 之后这里会变成 #hashtag 标签筛选。
+      </div>
+    </aside>
+  );
+}
+
+/* ─── 中栏 ─────────────────────────────────────────────── */
+
+function NotesListColumn({
+  notes,
+  isLoading,
+  selectedId,
+  onSelect,
+  onCreate,
+  createPending,
+}: {
+  notes: NoteSummary[];
+  isLoading: boolean;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onCreate: () => void;
+  createPending: boolean;
+}) {
+  return (
+    <section className="flex w-full shrink-0 flex-col md:w-[22rem] md:border-r md:border-white/40 dark:md:border-white/[0.05]">
+      {/* 列表头 — 移动端有新建按钮, xl+ 隐藏 (左栏已有) */}
+      <div className="flex items-center justify-between gap-2 border-b border-white/30 px-4 py-3 dark:border-white/[0.06]">
+        <div className="min-w-0">
+          <h2 className="truncate text-base font-semibold">笔记</h2>
+          <p className="text-xs text-muted-foreground">{notes.length} 条</p>
         </div>
-        <h2 className="text-lg font-semibold">还没有笔记</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          想到就写。第一个想法不必完美。
+        <Button
+          type="button"
+          size="sm"
+          onClick={onCreate}
+          disabled={createPending}
+          className="bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-sm shadow-fuchsia-500/30 hover:brightness-110 xl:hidden"
+        >
+          {createPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+          新建
+        </Button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">
+            <Loader2 className="mr-2 size-4 animate-spin" /> 加载中…
+          </div>
+        ) : notes.length === 0 ? (
+          <EmptyListState onCreate={onCreate} pending={createPending} />
+        ) : (
+          <ul className="divide-y divide-white/30 dark:divide-white/[0.04]">
+            {notes.map((n) => {
+              const active = selectedId === n.id;
+              return (
+                <li key={n.id}>
+                  <ListItem note={n} active={active} onSelect={onSelect} />
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ListItem({
+  note,
+  active,
+  onSelect,
+}: {
+  note: NoteSummary;
+  active: boolean;
+  onSelect: (id: string) => void;
+}) {
+  // 移动端 < md 点击直接跳全屏编辑, 桌面端选中预览
+  return (
+    <>
+      {/* 桌面 — 选中预览 */}
+      <button
+        type="button"
+        onClick={() => onSelect(note.id)}
+        className={cn(
+          "group hidden w-full flex-col items-start gap-1.5 px-4 py-3 text-left transition-colors md:flex",
+          active
+            ? "bg-gradient-to-r from-violet-500/15 to-fuchsia-500/10 ring-1 ring-inset ring-violet-500/20 dark:from-violet-400/15 dark:to-fuchsia-400/10 dark:ring-violet-400/25"
+            : "hover:bg-white/40 dark:hover:bg-white/[0.03]",
+        )}
+      >
+        <div className="flex w-full items-start justify-between gap-2">
+          <h3 className="line-clamp-1 flex-1 font-semibold">{note.title}</h3>
+          <span className="shrink-0 text-[10px] font-mono text-muted-foreground">
+            {formatRelative(note.updated_at)}
+          </span>
+        </div>
+        <p className="line-clamp-2 text-xs text-muted-foreground">
+          {note.excerpt || <span className="italic">（空笔记）</span>}
         </p>
+      </button>
+
+      {/* 移动 — 跳全屏编辑 */}
+      <Link
+        href={`/notes/${note.id}`}
+        className="flex w-full flex-col items-start gap-1.5 px-4 py-3 text-left transition-colors hover:bg-white/40 md:hidden dark:hover:bg-white/[0.03]"
+      >
+        <div className="flex w-full items-start justify-between gap-2">
+          <h3 className="line-clamp-1 flex-1 font-semibold">{note.title}</h3>
+          <span className="shrink-0 text-[10px] font-mono text-muted-foreground">
+            {formatRelative(note.updated_at)}
+          </span>
+        </div>
+        <p className="line-clamp-2 text-xs text-muted-foreground">
+          {note.excerpt || <span className="italic">（空笔记）</span>}
+        </p>
+      </Link>
+    </>
+  );
+}
+
+function EmptyListState({
+  onCreate,
+  pending,
+}: {
+  onCreate: () => void;
+  pending: boolean;
+}) {
+  return (
+    <div className="relative overflow-hidden px-6 py-16 text-center">
+      <div className="pointer-events-none absolute left-1/2 top-1/2 size-48 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-400/10 blur-3xl" />
+      <div className="relative">
+        <div className="mx-auto mb-3 inline-flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-white shadow-lg shadow-fuchsia-500/30">
+          <FileText className="size-6" />
+        </div>
+        <h3 className="text-base font-semibold">还没有笔记</h3>
+        <p className="mt-1 text-xs text-muted-foreground">想到就写。第一个想法不必完美。</p>
+        <Button
+          type="button"
+          size="sm"
+          onClick={onCreate}
+          disabled={pending}
+          className="mt-5 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-md shadow-fuchsia-500/30 hover:brightness-110"
+        >
+          {pending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+          写第一个
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── 右栏 ─────────────────────────────────────────────── */
+
+function PreviewColumn({
+  id,
+  onDelete,
+  onCreate,
+  createPending,
+}: {
+  id: string | null;
+  onDelete: (id: string) => void;
+  onCreate: () => void;
+  createPending: boolean;
+}) {
+  return (
+    <section className="hidden flex-1 flex-col overflow-hidden md:flex">
+      {id ? (
+        <PreviewBody key={id} id={id} onDelete={onDelete} />
+      ) : (
+        <PreviewPlaceholder onCreate={onCreate} createPending={createPending} />
+      )}
+    </section>
+  );
+}
+
+function PreviewBody({
+  id,
+  onDelete,
+}: {
+  id: string;
+  onDelete: (id: string) => void;
+}) {
+  const queryClient = useQueryClient();
+  const { data: note, isLoading } = useQuery<NotePublic>({
+    queryKey: ["note", id],
+    queryFn: () => getNote(id),
+    retry: false,
+  });
+
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [hydrated, setHydrated] = useState(false);
+  const [saved, setSaved] = useState<"idle" | "saving" | "saved" | "err">("idle");
+  const [errMsg, setErrMsg] = useState("");
+
+  useEffect(() => {
+    if (note && !hydrated) {
+      setTitle(note.title);
+      setContent(note.content);
+      setHydrated(true);
+    }
+  }, [note, hydrated]);
+
+  const dirty = hydrated && note && (title !== note.title || content !== note.content);
+
+  const saveMutation = useMutation({
+    mutationFn: () => updateNote(id, { title: title.trim() || "无标题笔记", content }),
+    onMutate: () => setSaved("saving"),
+    onSuccess: () => {
+      setSaved("saved");
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      queryClient.invalidateQueries({ queryKey: ["note", id] });
+      setTimeout(() => setSaved((s) => (s === "saved" ? "idle" : s)), 2000);
+    },
+    onError: (err) => {
+      setSaved("err");
+      setErrMsg(err instanceof Error ? err.message : "保存失败");
+    },
+  });
+
+  // ⌘S 保存
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        if (dirty) saveMutation.mutate();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirty, title, content]);
+
+  if (isLoading || !note) {
+    return (
+      <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+        <Loader2 className="mr-2 size-4 animate-spin" /> 加载笔记…
+      </div>
+    );
+  }
+
+  const handleDelete = () => {
+    if (!confirm(`确定删除「${title || "无标题笔记"}」？删除后不可恢复。`)) return;
+    onDelete(id);
+  };
+
+  return (
+    <div className="flex flex-1 flex-col overflow-hidden">
+      {/* 工具栏 */}
+      <div className="flex items-center justify-between gap-3 border-b border-white/30 px-5 py-2.5 dark:border-white/[0.06]">
+        <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+          <Clock4 className="size-3.5" />
+          <span className="truncate">{new Date(note.updated_at).toLocaleString()}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {saved === "saving" && (
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <Loader2 className="size-3 animate-spin" /> 保存中
+            </span>
+          )}
+          {saved === "saved" && (
+            <span className="text-xs text-emerald-600 dark:text-emerald-400">✓ 已保存</span>
+          )}
+          {saved === "err" && (
+            <span className="text-xs text-destructive">{errMsg || "保存失败"}</span>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => saveMutation.mutate()}
+            disabled={!dirty || saveMutation.isPending}
+            className="bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-sm shadow-fuchsia-500/30 hover:brightness-110 disabled:opacity-40"
+          >
+            <Save className="size-3.5" />
+            保存
+          </Button>
+          <Link
+            href={`/notes/${id}`}
+            className="inline-flex h-8 items-center gap-1 rounded-md border border-white/40 bg-white/40 px-2.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-white/70 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:bg-white/[0.08]"
+            aria-label="全屏编辑"
+          >
+            <Maximize2 className="size-3.5" />
+            全屏
+          </Link>
+          <button
+            type="button"
+            onClick={handleDelete}
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+            aria-label="删除"
+          >
+            <Trash2 className="size-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* 标题 */}
+      <input
+        type="text"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        maxLength={200}
+        placeholder="无标题笔记"
+        className="border-0 bg-transparent px-5 pt-6 text-3xl font-bold tracking-tight placeholder:text-muted-foreground/50 focus:outline-none"
+      />
+
+      {/* 正文 */}
+      <textarea
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        maxLength={200_000}
+        placeholder="想到就写。Markdown inline 渲染 / 自动保存留到 A.2 polish."
+        className="mt-3 flex-1 resize-none border-0 bg-transparent px-5 pb-6 font-mono text-[14px] leading-7 placeholder:text-muted-foreground/50 focus:outline-none"
+      />
+    </div>
+  );
+}
+
+function PreviewPlaceholder({
+  onCreate,
+  createPending,
+}: {
+  onCreate: () => void;
+  createPending: boolean;
+}) {
+  return (
+    <div className="relative flex flex-1 items-center justify-center overflow-hidden">
+      <div className="pointer-events-none absolute left-1/2 top-1/2 size-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-400/10 blur-3xl" />
+      <div className="relative text-center">
+        <div className="mx-auto mb-4 inline-flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-white shadow-lg shadow-fuchsia-500/30">
+          <FileText className="size-8" />
+        </div>
+        <h3 className="text-lg font-semibold">选个笔记看看</h3>
+        <p className="mt-1 text-sm text-muted-foreground">从左边列表点一个，或者新写一个。</p>
         <Button
           type="button"
           onClick={onCreate}
-          disabled={pending}
+          disabled={createPending}
           className="mt-6 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-md shadow-fuchsia-500/30 hover:brightness-110"
         >
-          {pending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-          写第一个笔记
+          {createPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+          新建笔记
         </Button>
       </div>
     </div>
