@@ -1,11 +1,6 @@
 "use client";
 
-import { css } from "@codemirror/lang-css";
-import { html } from "@codemirror/lang-html";
-import { javascript } from "@codemirror/lang-javascript";
-import { json } from "@codemirror/lang-json";
-import { python } from "@codemirror/lang-python";
-import { LanguageDescription, syntaxTree } from "@codemirror/language";
+import { syntaxTree } from "@codemirror/language";
 import { type Range } from "@codemirror/state";
 import {
   Decoration,
@@ -36,52 +31,6 @@ import {
  *   CodeInfo        → ``` 后语言名
  *   StrikethroughMark → ~~
  */
-// A.2-b C.2: 多语言注册供 markdown extension 在 ```lang ... ``` 内切换高亮
-export const codeLanguages: LanguageDescription[] = [
-  LanguageDescription.of({
-    name: "Python",
-    alias: ["python", "py"],
-    async load() {
-      return python();
-    },
-  }),
-  LanguageDescription.of({
-    name: "JavaScript",
-    alias: ["javascript", "js", "jsx"],
-    async load() {
-      return javascript({ jsx: true });
-    },
-  }),
-  LanguageDescription.of({
-    name: "TypeScript",
-    alias: ["typescript", "ts", "tsx"],
-    async load() {
-      return javascript({ jsx: true, typescript: true });
-    },
-  }),
-  LanguageDescription.of({
-    name: "HTML",
-    alias: ["html"],
-    async load() {
-      return html();
-    },
-  }),
-  LanguageDescription.of({
-    name: "CSS",
-    alias: ["css"],
-    async load() {
-      return css();
-    },
-  }),
-  LanguageDescription.of({
-    name: "JSON",
-    alias: ["json"],
-    async load() {
-      return json();
-    },
-  }),
-];
-
 const MARKUP_NODES = new Set([
   "HeaderMark",
   "EmphasisMark",
