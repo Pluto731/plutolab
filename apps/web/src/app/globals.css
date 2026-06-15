@@ -382,6 +382,20 @@ button:active:not(:disabled),
   background: transparent !important;
 }
 
+/* A.2-b C.4: ⌘. 专注模式 — data-focus-mode="true" 时其他行淡 32%, 光标行保留 */
+[data-focus-mode="true"] .cm-line {
+  opacity: 0.32;
+  transition: opacity 0.35s ease-out;
+}
+[data-focus-mode="true"] .cm-line.cm-activeLine {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-focus-mode="true"] .cm-line {
+    transition: none;
+  }
+}
+
 /* A.2-b C.2: 强制覆盖 caret 视觉 — 用足够高优先级杀掉默认蓝色"水滴" */
 .cm-editor .cm-cursorLayer .cm-cursor,
 .cm-editor .cm-dropCursor {

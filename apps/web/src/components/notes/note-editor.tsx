@@ -9,8 +9,9 @@ import {
 import { EditorView } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
 import CodeMirror from "@uiw/react-codemirror";
+import { Sparkles } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { codeLanguages, markdownLiveDecorations } from "./markdown-extensions";
 
@@ -121,25 +122,55 @@ export function NoteEditor({
     [placeholder],
   );
 
+  // A.2-b C.4: ⌘. / Ctrl+. 切换专注模式 (仅在编辑器获焦时响应)
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [focusMode, setFocusMode] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === ".") {
+        const root = wrapRef.current;
+        if (!root) return;
+        const inEditor = root.contains(document.activeElement);
+        if (!inEditor) return;
+        e.preventDefault();
+        setFocusMode((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
-    <CodeMirror
-      value={value}
-      onChange={onChange}
-      autoFocus={autoFocus}
-      extensions={extensions}
-      theme={isDark ? "dark" : "light"}
-      basicSetup={{
-        lineNumbers: false,
-        foldGutter: false,
-        // A.2-b C.1: 打开 active line 类供后续 focus mode 用; 默认黄底由 CSS 透明覆盖
-        highlightActiveLine: true,
-        highlightActiveLineGutter: false,
-        searchKeymap: false,
-        bracketMatching: false,
-        autocompletion: false,
-        indentOnInput: false,
-      }}
-      className={className}
-    />
+    <div
+      ref={wrapRef}
+      data-focus-mode={focusMode ? "true" : "false"}
+      className="relative h-full"
+    >
+      <CodeMirror
+        value={value}
+        onChange={onChange}
+        autoFocus={autoFocus}
+        extensions={extensions}
+        theme={isDark ? "dark" : "light"}
+        basicSetup={{
+          lineNumbers: false,
+          foldGutter: false,
+          // A.2-b C.1: 打开 active line 类供 focus mode 用; 默认黄底由 CSS 透明覆盖
+          highlightActiveLine: true,
+          highlightActiveLineGutter: false,
+          searchKeymap: false,
+          bracketMatching: false,
+          autocompletion: false,
+          indentOnInput: false,
+        }}
+        className={className}
+      />
+      {focusMode && (
+        <div className="pointer-events-none absolute right-2 top-2 z-20 inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[10px] font-medium text-violet-700 backdrop-blur dark:text-violet-300">
+          <Sparkles className="size-3" />
+          专注模式 · ⌘. 退出
+        </div>
+      )}
+    </div>
   );
 }
