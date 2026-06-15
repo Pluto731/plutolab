@@ -5,25 +5,30 @@ import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
 import CodeMirror from "@uiw/react-codemirror";
+import { Sparkles } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { markdownLiveDecorations } from "./markdown-extensions";
+import {
+  codeBlockChromeDecorations,
+  codeLanguages,
+  markdownLiveDecorations,
+} from "./markdown-extensions";
 
 /**
- * Markdown 编辑器 — Phase 3.1.polish A.2-a.
+ * Markdown 编辑器 — Phase 3.1.polish A.2-a + A.2-b 稳定版.
  *
- * 基于 CodeMirror 6 + @codemirror/lang-markdown 自定义 syntax highlighting:
+ * 视觉:
  *   - 标题 (#/##/###) → Lora 衬线字 + 阶梯字号
  *   - **加粗** → font-weight 700
  *   - *斜体* → font-style italic
  *   - `行内 code` → 紫底等宽字
  *   - [链接](url) → 紫色下划线
  *   - > 引文 → 灰斜体
- *   - markup 字符 (# / ** / `) 浅淡, 不抢主视觉
- *
- * Bear / Typora 风格的 source mode + decoration, 不是 wysiwyg.
- * 代码块多语言高亮 / 复制按钮 / 专注模式 → A.2-b.
+ *   - markup 字符 (# / ** / `) 非光标行隐藏 (Bear live preview)
+ *   - fenced code block: 顶部 chrome 条 (语言 chip + 复制按钮) + 整段紫淡底
+ *   - 多语言高亮: Python / JS / TS / HTML / CSS / JSON
+ *   - ⌘. / Ctrl+. 专注模式 (光标行清晰其他淡)
  */
 const markdownHighlightStyle = HighlightStyle.define([
   { tag: t.heading1, class: "cm-md-h1" },
@@ -41,12 +46,10 @@ const markdownHighlightStyle = HighlightStyle.define([
   { tag: t.quote, class: "cm-md-quote" },
   { tag: t.list, class: "cm-md-list" },
   { tag: t.contentSeparator, class: "cm-md-hr" },
-  // markup 字符 (# * > ` 等)
   { tag: t.processingInstruction, class: "cm-md-mark" },
   { tag: t.meta, class: "cm-md-mark" },
 ]);
 
-// 透明背景 + 继承父级字体 (让 Tailwind 控制)
 const editorTheme = EditorView.theme({
   "&": {
     backgroundColor: "transparent",
@@ -57,7 +60,6 @@ const editorTheme = EditorView.theme({
   ".cm-content": {
     fontFamily: "inherit",
     padding: "16px 0",
-    // caret 颜色由 .cm-cursor border-left 控制 (globals.css), 这里只关 caret-color 属性
     caretColor: "transparent",
   },
   ".cm-line": {
@@ -70,11 +72,9 @@ const editorTheme = EditorView.theme({
     fontFamily: "inherit",
     lineHeight: "1.7",
   },
-  // selection
   ".cm-selectionBackground, ::selection": {
     backgroundColor: "oklch(0.7 0.2 320 / 0.22) !important",
   },
-  // caret — 细一点 (1.5px) 品牌紫
   ".cm-cursor, .cm-dropCursor": {
     borderLeftWidth: "1.5px",
     borderLeftColor: "oklch(0.55 0.2 285)",
@@ -99,12 +99,13 @@ export function NoteEditor({
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
-  // 扩展列表 — markdownLiveDecorations 在 syntaxHighlighting 之后, 让 line decoration 覆盖
+  // 扩展列表 — line decoration / chrome widget 拆两个独立 plugin 互不干扰
   const extensions = useMemo(
     () => [
-      markdown({ base: markdownLanguage }),
+      markdown({ base: markdownLanguage, codeLanguages }),
       syntaxHighlighting(markdownHighlightStyle),
       markdownLiveDecorations,
+      codeBlockChromeDecorations,
       editorTheme,
       EditorView.lineWrapping,
       EditorView.contentAttributes.of({
@@ -115,24 +116,55 @@ export function NoteEditor({
     [placeholder],
   );
 
+  // ⌘. / Ctrl+. 切换专注模式 (仅在编辑器内获焦时响应)
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [focusMode, setFocusMode] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === ".") {
+        const root = wrapRef.current;
+        if (!root) return;
+        const inEditor = root.contains(document.activeElement);
+        if (!inEditor) return;
+        e.preventDefault();
+        setFocusMode((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
-    <CodeMirror
-      value={value}
-      onChange={onChange}
-      autoFocus={autoFocus}
-      extensions={extensions}
-      theme={isDark ? "dark" : "light"}
-      basicSetup={{
-        lineNumbers: false,
-        foldGutter: false,
-        highlightActiveLine: false,
-        highlightActiveLineGutter: false,
-        searchKeymap: false,
-        bracketMatching: false,
-        autocompletion: false,
-        indentOnInput: false,
-      }}
-      className={className}
-    />
+    <div
+      ref={wrapRef}
+      data-focus-mode={focusMode ? "true" : "false"}
+      className="relative h-full"
+    >
+      <CodeMirror
+        value={value}
+        onChange={onChange}
+        autoFocus={autoFocus}
+        extensions={extensions}
+        theme={isDark ? "dark" : "light"}
+        basicSetup={{
+          lineNumbers: false,
+          foldGutter: false,
+          // 必须 true 才有 .cm-activeLine class 让 focus mode CSS 工作
+          highlightActiveLine: true,
+          highlightActiveLineGutter: false,
+          searchKeymap: false,
+          bracketMatching: false,
+          autocompletion: false,
+          indentOnInput: false,
+        }}
+        className={className}
+      />
+      {focusMode && (
+        <div className="pointer-events-none absolute right-2 top-2 z-20 inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[10px] font-medium text-violet-700 backdrop-blur dark:text-violet-300">
+          <Sparkles className="size-3" />
+          专注模式 · ⌘. 退出
+        </div>
+      )}
+    </div>
   );
 }
