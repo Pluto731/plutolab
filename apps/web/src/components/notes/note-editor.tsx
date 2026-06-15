@@ -125,7 +125,8 @@ export function NoteEditor({
       basicSetup={{
         lineNumbers: false,
         foldGutter: false,
-        highlightActiveLine: false,
+        // A.2-b C.1: 打开 active line 类供后续 focus mode 用; 默认黄底由 CSS 透明覆盖
+        highlightActiveLine: true,
         highlightActiveLineGutter: false,
         searchKeymap: false,
         bracketMatching: false,

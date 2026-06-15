@@ -377,6 +377,11 @@ button:active:not(:disabled),
   pointer-events: none;
 }
 
+/* A.2-b C.1: highlightActiveLine 默认黄底覆盖透明, 让后续 focus mode 接管 */
+.cm-activeLine {
+  background: transparent !important;
+}
+
 /* fenced code block — 整段紫淡底 + 圆角边 (line decoration) */
 .cm-md-code-block-line {
   background: oklch(0.96 0.015 285);
