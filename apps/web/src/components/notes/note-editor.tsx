@@ -5,10 +5,11 @@ import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
 import CodeMirror from "@uiw/react-codemirror";
+import { Sparkles } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { markdownLiveDecorations } from "./markdown-extensions";
+import { codeLanguages, markdownLiveDecorations } from "./markdown-extensions";
 
 /**
  * Markdown 编辑器 — Phase 3.1.polish A.2-a.
@@ -99,10 +100,10 @@ export function NoteEditor({
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
-  // 扩展列表 — markdownLiveDecorations 在 syntaxHighlighting 之后, 让 line decoration 覆盖
+  // 扩展列表 — markdownLiveDecorations 在 syntaxHighlighting 之后让 line decoration 覆盖
   const extensions = useMemo(
     () => [
-      markdown({ base: markdownLanguage }),
+      markdown({ base: markdownLanguage, codeLanguages }),
       syntaxHighlighting(markdownHighlightStyle),
       markdownLiveDecorations,
       editorTheme,
@@ -115,24 +116,56 @@ export function NoteEditor({
     [placeholder],
   );
 
+  // ⌘. / Ctrl+. 切换专注模式 (仅在编辑器内获焦时响应)
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [focusMode, setFocusMode] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === ".") {
+        const root = wrapRef.current;
+        if (!root) return;
+        const inEditor = root.contains(document.activeElement);
+        if (!inEditor) return;
+        e.preventDefault();
+        setFocusMode((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
-    <CodeMirror
-      value={value}
-      onChange={onChange}
-      autoFocus={autoFocus}
-      extensions={extensions}
-      theme={isDark ? "dark" : "light"}
-      basicSetup={{
-        lineNumbers: false,
-        foldGutter: false,
-        highlightActiveLine: false,
-        highlightActiveLineGutter: false,
-        searchKeymap: false,
-        bracketMatching: false,
-        autocompletion: false,
-        indentOnInput: false,
-      }}
-      className={className}
-    />
+    <div
+      ref={wrapRef}
+      data-focus-mode={focusMode ? "true" : "false"}
+      className="relative h-full"
+    >
+      <CodeMirror
+        value={value}
+        onChange={onChange}
+        autoFocus={autoFocus}
+        extensions={extensions}
+        theme={isDark ? "dark" : "light"}
+        basicSetup={{
+          lineNumbers: false,
+          foldGutter: false,
+          // 必须 true 才有 .cm-activeLine class 让 focus mode CSS 工作
+          highlightActiveLine: true,
+          highlightActiveLineGutter: false,
+          searchKeymap: false,
+          bracketMatching: false,
+          autocompletion: false,
+          indentOnInput: false,
+        }}
+        className={className}
+      />
+      {/* 专注模式指示 */}
+      {focusMode && (
+        <div className="pointer-events-none absolute right-2 top-2 z-20 inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-1 text-[10px] font-medium text-violet-700 backdrop-blur dark:text-violet-300">
+          <Sparkles className="size-3" />
+          专注模式 · ⌘. 退出
+        </div>
+      )}
+    </div>
   );
 }
