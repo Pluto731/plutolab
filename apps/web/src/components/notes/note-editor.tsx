@@ -12,7 +12,11 @@ import CodeMirror from "@uiw/react-codemirror";
 import { useTheme } from "next-themes";
 import { useMemo } from "react";
 
-import { codeLanguages, markdownLiveDecorations } from "./markdown-extensions";
+import {
+  codeBlockChromeDecorations,
+  codeLanguages,
+  markdownLiveDecorations,
+} from "./markdown-extensions";
 
 /**
  * Markdown 编辑器 — Phase 3.1.polish A.2-a.
@@ -111,6 +115,7 @@ export function NoteEditor({
       // 亮模式 fallback syntax highlight (暗模式用 @uiw oneDark 的)
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
       markdownLiveDecorations,
+      codeBlockChromeDecorations,
       editorTheme,
       EditorView.lineWrapping,
       EditorView.contentAttributes.of({
