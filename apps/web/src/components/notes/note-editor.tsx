@@ -8,6 +8,8 @@ import CodeMirror from "@uiw/react-codemirror";
 import { useTheme } from "next-themes";
 import { useMemo } from "react";
 
+import { markdownLiveDecorations } from "./markdown-extensions";
+
 /**
  * Markdown 编辑器 — Phase 3.1.polish A.2-a.
  *
@@ -55,7 +57,8 @@ const editorTheme = EditorView.theme({
   ".cm-content": {
     fontFamily: "inherit",
     padding: "16px 0",
-    caretColor: "oklch(0.65 0.22 320)",
+    // caret 颜色由 .cm-cursor border-left 控制 (globals.css), 这里只关 caret-color 属性
+    caretColor: "transparent",
   },
   ".cm-line": {
     padding: "0 4px",
@@ -69,7 +72,12 @@ const editorTheme = EditorView.theme({
   },
   // selection
   ".cm-selectionBackground, ::selection": {
-    backgroundColor: "oklch(0.7 0.2 320 / 0.25) !important",
+    backgroundColor: "oklch(0.7 0.2 320 / 0.22) !important",
+  },
+  // caret — 细一点 (1.5px) 品牌紫
+  ".cm-cursor, .cm-dropCursor": {
+    borderLeftWidth: "1.5px",
+    borderLeftColor: "oklch(0.55 0.2 285)",
   },
 });
 
@@ -91,11 +99,12 @@ export function NoteEditor({
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
-  // 黑暗模式微调一些 token 颜色
+  // 扩展列表 — markdownLiveDecorations 在 syntaxHighlighting 之后, 让 line decoration 覆盖
   const extensions = useMemo(
     () => [
       markdown({ base: markdownLanguage }),
       syntaxHighlighting(markdownHighlightStyle),
+      markdownLiveDecorations,
       editorTheme,
       EditorView.lineWrapping,
       EditorView.contentAttributes.of({
