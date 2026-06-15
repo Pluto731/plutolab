@@ -377,126 +377,37 @@ button:active:not(:disabled),
   pointer-events: none;
 }
 
-/* fenced code block — 整段紫淡底 + 圆角边 + 顶部 chrome 条 (line decoration + widget) */
-
-/* Chrome 条 — 顶部语言名 + 复制按钮 (widget block) */
-.cm-md-code-chrome {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 5px 12px;
-  margin-top: 10px;
-  background: oklch(0.92 0.015 285);
-  border: 1px solid oklch(0.7 0.2 320 / 0.18);
-  border-bottom: 1px solid oklch(0.7 0.2 320 / 0.12);
-  border-top-left-radius: 10px;
-  border-top-right-radius: 10px;
-  font-family: var(--font-mono), monospace;
-  font-size: 0.7rem;
-  user-select: none;
-}
-.dark .cm-md-code-chrome {
-  background: oklch(0.21 0.015 285);
-  border-color: oklch(0.7 0.2 320 / 0.22);
-}
-
-.cm-md-code-chrome-lang {
-  color: oklch(0.5 0.18 285);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.dark .cm-md-code-chrome-lang {
-  color: oklch(0.75 0.18 285);
-}
-
-.cm-md-code-chrome-copy {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border-radius: 6px;
-  color: oklch(0.5 0 0);
-  background: transparent;
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: all 0.15s ease-out;
-  font-family: inherit;
-  font-size: inherit;
-}
-.cm-md-code-chrome-copy:hover {
-  background: oklch(0.7 0.2 320 / 0.1);
-  color: oklch(0.45 0.2 285);
-  border-color: oklch(0.7 0.2 320 / 0.25);
-}
-.dark .cm-md-code-chrome-copy {
-  color: oklch(0.7 0 0);
-}
-.dark .cm-md-code-chrome-copy:hover {
-  background: oklch(0.7 0.2 320 / 0.18);
-  color: oklch(0.85 0.2 285);
-}
-.cm-md-code-chrome-copy.copied {
-  color: oklch(0.55 0.18 145) !important;
-  border-color: oklch(0.55 0.18 145 / 0.3);
-  background: oklch(0.55 0.18 145 / 0.08);
-}
-
-/* 代码块行 — 整段紫淡底 + 左右边 (顶部由 chrome 接管) */
+/* fenced code block — 整段紫淡底 + 圆角边 (line decoration) */
 .cm-md-code-block-line {
   background: oklch(0.96 0.015 285);
   font-family: var(--font-mono), monospace;
   font-size: 0.92em;
+}
+.dark .cm-md-code-block-line {
+  background: oklch(0.24 0.015 285);
+}
+.cm-md-code-block-line-first {
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  margin-top: 8px;
+  padding-top: 4px !important;
+  border-top: 1px solid oklch(0.7 0.2 320 / 0.18);
   border-left: 1px solid oklch(0.7 0.2 320 / 0.12);
   border-right: 1px solid oklch(0.7 0.2 320 / 0.12);
 }
-.dark .cm-md-code-block-line {
-  background: oklch(0.22 0.012 285);
-  border-left-color: oklch(0.7 0.2 320 / 0.18);
-  border-right-color: oklch(0.7 0.2 320 / 0.18);
-}
-
-/* 第一行 (```lang) — 顶部接 chrome 条无圆角, 行高变薄因为 markup 被隐藏 */
-.cm-md-code-block-line-first {
-  padding-top: 6px !important;
-  line-height: 1.2 !important;
-}
-
-/* 最后一行 (```) — 底部圆角 + 边框 */
 .cm-md-code-block-line-last {
-  padding-bottom: 6px !important;
-  line-height: 1.2 !important;
-  margin-bottom: 10px;
-  border-bottom: 1px solid oklch(0.7 0.2 320 / 0.18);
   border-bottom-left-radius: 10px;
   border-bottom-right-radius: 10px;
+  padding-bottom: 4px !important;
+  margin-bottom: 8px;
+  border-bottom: 1px solid oklch(0.7 0.2 320 / 0.18);
+  border-left: 1px solid oklch(0.7 0.2 320 / 0.12);
+  border-right: 1px solid oklch(0.7 0.2 320 / 0.12);
 }
-.dark .cm-md-code-block-line-last {
-  border-bottom-color: oklch(0.7 0.2 320 / 0.22);
-}
-
-/* ─── 专注模式 (Phase 3.1.polish A.2-b) ─── */
-
-/* 关掉默认 active line 黄色背景, 让 focus mode 接管 */
-.cm-activeLine {
-  background: transparent !important;
-}
-
-[data-focus-mode="true"] .cm-line {
-  opacity: 0.32;
-  transition: opacity 0.35s ease-out;
-}
-[data-focus-mode="true"] .cm-line.cm-activeLine,
-[data-focus-mode="true"] .cm-md-code-chrome {
-  opacity: 1;
-}
-
-/* prefers-reduced-motion — 关掉透明度过渡 */
-@media (prefers-reduced-motion: reduce) {
-  [data-focus-mode="true"] .cm-line {
-    transition: none;
-  }
+/* 中间行只有左右边, 没有圆角 */
+.cm-md-code-block-line:not(.cm-md-code-block-line-first):not(.cm-md-code-block-line-last) {
+  border-left: 1px solid oklch(0.7 0.2 320 / 0.12);
+  border-right: 1px solid oklch(0.7 0.2 320 / 0.12);
 }
 
 
