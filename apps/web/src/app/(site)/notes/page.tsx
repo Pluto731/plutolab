@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Calendar,
   Clock4,
@@ -315,14 +316,28 @@ function NotesListColumn({
           />
         ) : (
           <ul className="divide-y divide-white/30 dark:divide-white/[0.04]">
-            {notes.map((n) => {
-              const active = selectedId === n.id;
-              return (
-                <li key={n.id}>
-                  <ListItem note={n} active={active} onSelect={onSelect} />
-                </li>
-              );
-            })}
+            <AnimatePresence initial={false}>
+              {notes.map((n) => {
+                const active = selectedId === n.id;
+                return (
+                  <motion.li
+                    key={n.id}
+                    layout
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{
+                      opacity: 0,
+                      x: 30,
+                      height: 0,
+                      transition: { duration: 0.2, ease: [0.4, 0, 0.2, 1] },
+                    }}
+                    transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    <ListItem note={n} active={active} onSelect={onSelect} />
+                  </motion.li>
+                );
+              })}
+            </AnimatePresence>
           </ul>
         )}
       </div>
@@ -448,11 +463,31 @@ function PreviewColumn({
 }) {
   return (
     <section className="hidden flex-1 flex-col overflow-hidden md:flex">
-      {id ? (
-        <PreviewBody key={id} id={id} onDelete={onDelete} />
-      ) : (
-        <PreviewPlaceholder onCreate={onCreate} createPending={createPending} />
-      )}
+      <AnimatePresence mode="wait" initial={false}>
+        {id ? (
+          <motion.div
+            key={id}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4, transition: { duration: 0.14 } }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-1 flex-col overflow-hidden"
+          >
+            <PreviewBody id={id} onDelete={onDelete} />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="placeholder"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: 0.12 } }}
+            transition={{ duration: 0.25 }}
+            className="flex flex-1 flex-col"
+          >
+            <PreviewPlaceholder onCreate={onCreate} createPending={createPending} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }
