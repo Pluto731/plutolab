@@ -11,6 +11,7 @@ import {
   Maximize2,
   Plus,
   Save,
+  Search,
   Sparkles,
   Trash2,
   Wand2,
@@ -47,6 +48,7 @@ import {
   listTags,
   type NotePublic,
   type NoteSummary,
+  searchNotes,
   type TagWithCount,
   updateNote,
 } from "@/lib/notes";
@@ -93,9 +95,20 @@ export default function NotesPage() {
 
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
+  // B.3: 全局搜索 + 300ms debounce
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(searchInput.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
   const { data: notes, isLoading } = useQuery<NoteSummary[]>({
-    queryKey: ["notes", selectedTag],
-    queryFn: () => listNotes(selectedTag ?? undefined),
+    queryKey: ["notes", { tag: selectedTag, q: debouncedQuery }],
+    queryFn: () =>
+      debouncedQuery
+        ? searchNotes(debouncedQuery)
+        : listNotes(selectedTag ?? undefined),
     enabled: !!user,
     staleTime: 10 * 1000,
   });
@@ -195,6 +208,9 @@ export default function NotesPage() {
           createPending={createMutation.isPending}
           onLoadSample={() => sampleMutation.mutate()}
           samplePending={sampleMutation.isPending}
+          searchInput={searchInput}
+          setSearchInput={setSearchInput}
+          isSearching={debouncedQuery.length > 0}
         />
 
         {/* 右栏 — 预览/编辑 (md+) */}
@@ -369,6 +385,9 @@ function NotesListColumn({
   createPending,
   onLoadSample,
   samplePending,
+  searchInput,
+  setSearchInput,
+  isSearching,
 }: {
   notes: NoteSummary[];
   isLoading: boolean;
@@ -378,14 +397,21 @@ function NotesListColumn({
   createPending: boolean;
   onLoadSample: () => void;
   samplePending: boolean;
+  searchInput: string;
+  setSearchInput: (v: string) => void;
+  isSearching: boolean;
 }) {
   return (
     <section className="flex w-full shrink-0 flex-col md:w-[22rem] md:border-r md:border-white/40 dark:md:border-white/[0.05]">
-      {/* 列表头 — 移动端有新建按钮, xl+ 隐藏 (左栏已有) */}
+      {/* 列表头 — 标题 + 计数 + (移动端) 新建按钮 */}
       <div className="flex items-center justify-between gap-2 border-b border-white/30 px-4 py-3 dark:border-white/[0.06]">
         <div className="min-w-0">
-          <h2 className="truncate text-base font-semibold">笔记</h2>
-          <p className="text-xs text-muted-foreground">{notes.length} 条</p>
+          <h2 className="truncate text-base font-semibold">
+            {isSearching ? "搜索结果" : "笔记"}
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            {isSearching ? `找到 ${notes.length} 条` : `${notes.length} 条`}
+          </p>
         </div>
         <Button
           type="button"
@@ -397,6 +423,30 @@ function NotesListColumn({
           {createPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
           新建
         </Button>
+      </div>
+
+      {/* B.3: 全局搜索框 */}
+      <div className="border-b border-white/30 px-3 py-2 dark:border-white/[0.06]">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="搜索标题或正文…"
+            className="h-9 w-full rounded-lg border border-white/40 bg-white/40 pl-8 pr-8 text-sm placeholder:text-muted-foreground focus:border-violet-500/40 focus:bg-white/70 focus:outline-none focus:ring-2 focus:ring-violet-500/15 dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:bg-white/[0.06]"
+          />
+          {searchInput && (
+            <button
+              type="button"
+              onClick={() => setSearchInput("")}
+              aria-label="清除搜索"
+              className="absolute right-1.5 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-zinc-100/60 hover:text-foreground dark:hover:bg-white/[0.06]"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">

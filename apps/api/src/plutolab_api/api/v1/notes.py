@@ -79,6 +79,26 @@ async def list_notes(
     return [_to_summary(n) for n in result.all()]
 
 
+@router.get("/search", response_model=list[NoteSummary])
+async def search_notes(
+    user: CurrentUser,
+    db: DbSession,
+    q: Annotated[str, Query(min_length=1, max_length=200, description="关键字 (匹配 title + content)")],
+) -> list[NoteSummary]:
+    """简单 ILIKE 跨笔记全文搜索. 后续可升级 PG tsvector + GIN."""
+    pattern = f"%{q.strip()}%"
+    stmt = (
+        select(Note)
+        .where(
+            Note.user_id == user.id,
+            (Note.title.ilike(pattern)) | (Note.content.ilike(pattern)),
+        )
+        .order_by(Note.updated_at.desc())
+    )
+    result = await db.scalars(stmt)
+    return [_to_summary(n) for n in result.all()]
+
+
 _LIST_TAGS_SQL = text(
     """
     SELECT MIN(t) AS name, COUNT(*) AS count

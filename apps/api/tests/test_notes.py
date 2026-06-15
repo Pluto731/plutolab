@@ -299,6 +299,54 @@ class TestTags:
         assert bob_tags == []
 
 
+class TestSearch:
+    async def test_search_by_title(self, client: AsyncClient) -> None:
+        h = await _auth(client, "search-title@example.com")
+        await client.post(NOTES, headers=h, json={"title": "学习 Python", "content": "正文"})
+        await client.post(NOTES, headers=h, json={"title": "学 Go", "content": "正文"})
+        res = await client.get(f"{NOTES}/search?q=Python", headers=h)
+        assert res.status_code == 200
+        body = res.json()
+        assert len(body) == 1
+        assert body[0]["title"] == "学习 Python"
+
+    async def test_search_by_content(self, client: AsyncClient) -> None:
+        h = await _auth(client, "search-content@example.com")
+        await client.post(
+            NOTES, headers=h, json={"title": "无关", "content": "关键词在正文里 cat"}
+        )
+        res = await client.get(f"{NOTES}/search?q=cat", headers=h)
+        assert len(res.json()) == 1
+
+    async def test_search_case_insensitive(self, client: AsyncClient) -> None:
+        h = await _auth(client, "search-case@example.com")
+        await client.post(NOTES, headers=h, json={"title": "PYTHON 笔记", "content": ""})
+        res = await client.get(f"{NOTES}/search?q=python", headers=h)
+        assert len(res.json()) == 1
+
+    async def test_search_chinese(self, client: AsyncClient) -> None:
+        h = await _auth(client, "search-zh@example.com")
+        await client.post(NOTES, headers=h, json={"title": "想法集", "content": "今天有个想法"})
+        res = await client.get(f"{NOTES}/search?q=想法", headers=h)
+        assert len(res.json()) == 1
+
+    async def test_search_empty_q_rejected(self, client: AsyncClient) -> None:
+        h = await _auth(client, "search-empty@example.com")
+        res = await client.get(f"{NOTES}/search?q=", headers=h)
+        assert res.status_code == 422
+
+    async def test_search_isolated_per_user(self, client: AsyncClient) -> None:
+        alice = await _auth(client, "alice-search@example.com")
+        bob = await _auth(client, "bob-search@example.com")
+        await client.post(NOTES, headers=alice, json={"title": "Alice 秘密", "content": ""})
+        bob_res = await client.get(f"{NOTES}/search?q=秘密", headers=bob)
+        assert bob_res.json() == []
+
+    async def test_search_requires_auth(self, client: AsyncClient) -> None:
+        res = await client.get(f"{NOTES}/search?q=anything")
+        assert res.status_code == 401
+
+
 class TestSampleNote:
     async def test_sample_endpoint_creates_with_expected_title(
         self, client: AsyncClient

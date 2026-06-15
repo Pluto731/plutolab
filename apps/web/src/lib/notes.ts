@@ -49,6 +49,16 @@ export async function listTags(): Promise<TagWithCount[]> {
   return res.json() as Promise<TagWithCount[]>;
 }
 
+/** B.3: 跨笔记全文搜索 (ILIKE title + content). q 为空时不要调此接口. */
+export async function searchNotes(q: string): Promise<NoteSummary[]> {
+  const res = await fetch(
+    `${API_URL}/api/v1/notes/search?q=${encodeURIComponent(q)}`,
+    { headers: authHeaders() },
+  );
+  if (!res.ok) throw new Error(`search ${res.status}`);
+  return res.json() as Promise<NoteSummary[]>;
+}
+
 export async function getNote(id: string): Promise<NotePublic> {
   const res = await fetch(`${API_URL}/api/v1/notes/${id}`, { headers: authHeaders() });
   const data: unknown = await res.json().catch(() => null);
