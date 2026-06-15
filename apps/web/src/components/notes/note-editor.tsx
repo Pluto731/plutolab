@@ -8,7 +8,7 @@ import CodeMirror from "@uiw/react-codemirror";
 import { useTheme } from "next-themes";
 import { useMemo } from "react";
 
-import { markdownLiveDecorations } from "./markdown-extensions";
+import { codeLanguages, markdownLiveDecorations } from "./markdown-extensions";
 
 /**
  * Markdown 编辑器 — Phase 3.1.polish A.2-a.
@@ -102,7 +102,7 @@ export function NoteEditor({
   // 扩展列表 — markdownLiveDecorations 在 syntaxHighlighting 之后, 让 line decoration 覆盖
   const extensions = useMemo(
     () => [
-      markdown({ base: markdownLanguage }),
+      markdown({ base: markdownLanguage, codeLanguages }),
       syntaxHighlighting(markdownHighlightStyle),
       markdownLiveDecorations,
       editorTheme,
