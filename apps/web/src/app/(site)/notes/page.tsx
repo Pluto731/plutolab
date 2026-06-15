@@ -14,12 +14,28 @@ import {
   Trash2,
   Wand2,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuthUser } from "@/components/auth/use-auth";
 import { Button } from "@/components/ui/button";
+
+// CodeMirror 用 window, 禁 SSR
+const NoteEditor = dynamic(
+  () => import("@/components/notes/note-editor").then((m) => m.NoteEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center py-12 text-xs text-muted-foreground">
+        <Loader2 className="mr-2 size-3 animate-spin" /> 编辑器加载中…
+      </div>
+    ),
+  },
+);
+
+const AUTOSAVE_DEBOUNCE_MS = 1500;
 import {
   createNote,
   createSampleNote,
@@ -523,7 +539,7 @@ function PreviewBody({
   const dirty = hydrated && note && (title !== note.title || content !== note.content);
 
   const saveMutation = useMutation({
-    mutationFn: () => updateNote(id, { title: title.trim() || "无标题笔记", content }),
+    mutationFn: (body: { title: string; content: string }) => updateNote(id, body),
     onMutate: () => setSaved("saving"),
     onSuccess: () => {
       setSaved("saved");
@@ -537,12 +553,36 @@ function PreviewBody({
     },
   });
 
-  // ⌘S 保存
+  // 自动保存 debounce 1.5s
+  const latestRef = useRef({ title, content });
+  useEffect(() => {
+    latestRef.current = { title, content };
+  }, [title, content]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const t = setTimeout(() => {
+      const { title: latestTitle, content: latestContent } = latestRef.current;
+      saveMutation.mutate({
+        title: latestTitle.trim() || "无标题笔记",
+        content: latestContent,
+      });
+    }, AUTOSAVE_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, content, dirty]);
+
+  // ⌘S 立即保存
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
-        if (dirty) saveMutation.mutate();
+        if (dirty) {
+          saveMutation.mutate({
+            title: title.trim() || "无标题笔记",
+            content,
+          });
+        }
       }
     };
     window.addEventListener("keydown", onKey);
@@ -583,16 +623,9 @@ function PreviewBody({
           {saved === "err" && (
             <span className="text-xs text-destructive">{errMsg || "保存失败"}</span>
           )}
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => saveMutation.mutate()}
-            disabled={!dirty || saveMutation.isPending}
-            className="bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-sm shadow-fuchsia-500/30 hover:brightness-110 disabled:opacity-40"
-          >
-            <Save className="size-3.5" />
-            保存
-          </Button>
+          {saved === "idle" && dirty && (
+            <span className="text-xs text-muted-foreground">未保存…</span>
+          )}
           <Link
             href={`/notes/${id}`}
             className="inline-flex h-8 items-center gap-1 rounded-md border border-white/40 bg-white/40 px-2.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-white/70 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-zinc-200 dark:hover:bg-white/[0.08]"
@@ -612,7 +645,7 @@ function PreviewBody({
         </div>
       </div>
 
-      {/* 标题 — Lora 衬线字, 读书感 */}
+      {/* 标题 — Lora 衬线字 */}
       <input
         type="text"
         value={title}
@@ -622,14 +655,14 @@ function PreviewBody({
         className="border-0 bg-transparent px-5 pt-6 font-serif text-3xl font-semibold tracking-tight placeholder:text-muted-foreground/50 focus:outline-none"
       />
 
-      {/* 正文 */}
-      <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        maxLength={200_000}
-        placeholder="想到就写。Markdown inline 渲染 / 自动保存留到 A.2 polish."
-        className="mt-3 flex-1 resize-none border-0 bg-transparent px-5 pb-6 font-mono text-[14px] leading-7 placeholder:text-muted-foreground/50 focus:outline-none"
-      />
+      {/* 正文 — CodeMirror */}
+      <div className="mt-3 flex-1 overflow-hidden px-5 pb-6">
+        <NoteEditor
+          value={content}
+          onChange={setContent}
+          placeholder="想到就写… # 标题 / **加粗** / `code` 自动美化"
+        />
+      </div>
     </div>
   );
 }

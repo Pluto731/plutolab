@@ -2,14 +2,31 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Check, Loader2, Trash2 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 
 import { useAuthUser } from "@/components/auth/use-auth";
 import { Button } from "@/components/ui/button";
 import { deleteNote, getNote, type NotePublic, updateNote } from "@/lib/notes";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
+
+// CodeMirror 用 window, 禁 SSR
+const NoteEditor = dynamic(
+  () => import("@/components/notes/note-editor").then((m) => m.NoteEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
+        <Loader2 className="mr-2 size-4 animate-spin" /> 编辑器加载中…
+      </div>
+    ),
+  },
+);
+
+// 自动保存 debounce 间隔
+const AUTOSAVE_DEBOUNCE_MS = 1500;
 
 export default function NoteEditorPage({
   params,
@@ -69,6 +86,9 @@ export default function NoteEditorPage({
     },
   });
 
+  const dirty =
+    hydrated && note !== undefined && (title !== note.title || content !== note.content);
+
   const onSave = () => {
     if (!hydrated) return;
     const trimmed = title.trim() || "无标题笔记";
@@ -76,18 +96,37 @@ export default function NoteEditorPage({
     saveMutation.mutate({ title: trimmed, content });
   };
 
-  // ⌘S / Ctrl+S 保存
+  // 自动保存 — debounce 1.5s; 用 ref 拿最新值避免 stale closure
+  const latestRef = useRef({ title, content });
+  useEffect(() => {
+    latestRef.current = { title, content };
+  }, [title, content]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const t = setTimeout(() => {
+      const { title: latestTitle, content: latestContent } = latestRef.current;
+      saveMutation.mutate({
+        title: latestTitle.trim() || "无标题笔记",
+        content: latestContent,
+      });
+    }, AUTOSAVE_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, content, dirty]);
+
+  // ⌘S / Ctrl+S 立即保存
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
-        onSave();
+        if (dirty) onSave();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, content, hydrated]);
+  }, [dirty, title, content]);
 
   if (!user) {
     return (
@@ -131,9 +170,9 @@ export default function NoteEditorPage({
   };
 
   return (
-    <main className="mx-auto max-w-3xl px-6 pb-24 pt-20 md:pt-10">
+    <main className="mx-auto flex h-[calc(100vh-5rem)] max-w-3xl flex-col px-6 pt-20 md:pt-10">
       {/* 工具栏 */}
-      <div className="sticky top-16 z-10 -mx-2 mb-6 flex items-center justify-between gap-3 rounded-2xl border border-white/40 bg-white/70 px-4 py-2.5 backdrop-blur-xl md:top-4 dark:border-white/10 dark:bg-black/40">
+      <div className="sticky top-16 z-10 -mx-2 mb-4 flex items-center justify-between gap-3 rounded-2xl border border-white/40 bg-white/70 px-4 py-2.5 backdrop-blur-xl md:top-4 dark:border-white/10 dark:bg-black/40">
         <button
           type="button"
           onClick={() => router.push("/notes")}
@@ -143,10 +182,7 @@ export default function NoteEditorPage({
           全部笔记
         </button>
         <div className="flex items-center gap-3">
-          <SaveBadge state={saveState} message={errorMsg} />
-          <Button type="button" size="sm" onClick={onSave} disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? "保存中…" : "保存"}
-          </Button>
+          <SaveBadge state={saveState} message={errorMsg} dirty={dirty} />
           <button
             type="button"
             onClick={onDelete}
@@ -159,39 +195,43 @@ export default function NoteEditorPage({
         </div>
       </div>
 
-      {/* 标题 — Lora 衬线字, 读书感 */}
+      {/* 标题 — Lora 衬线字 */}
       <input
         type="text"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         maxLength={200}
         placeholder="无标题笔记"
-        className="w-full border-0 bg-transparent font-serif text-4xl font-semibold tracking-tight placeholder:text-muted-foreground/50 focus:outline-none"
+        className="shrink-0 border-0 bg-transparent font-serif text-4xl font-semibold tracking-tight placeholder:text-muted-foreground/50 focus:outline-none"
       />
 
       {/* 元信息 */}
-      <p className="mt-2 text-xs text-muted-foreground">
-        {new Date(note.updated_at).toLocaleString()}
+      <p className="mt-2 shrink-0 text-xs text-muted-foreground">
+        {new Date(note.updated_at).toLocaleString()} · 改了自动保存 · ⌘/Ctrl + S 立即保存
       </p>
 
-      {/* 正文 */}
-      <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        maxLength={200_000}
-        placeholder="想到就写。Markdown 渲染下一片做。"
-        rows={24}
-        className="mt-6 w-full resize-none border-0 bg-transparent font-mono text-[15px] leading-7 placeholder:text-muted-foreground/50 focus:outline-none"
-      />
-
-      <p className="mt-4 text-xs text-muted-foreground">
-        提示：⌘/Ctrl + S 快速保存
-      </p>
+      {/* 正文 — CodeMirror */}
+      <div className="mt-4 flex-1 overflow-hidden">
+        <NoteEditor
+          value={content}
+          onChange={setContent}
+          autoFocus
+          placeholder="想到就写… # 标题 / **加粗** / *斜体* / > 引文 / `code` 都会自动美化"
+        />
+      </div>
     </main>
   );
 }
 
-function SaveBadge({ state, message }: { state: SaveState; message: string }) {
+function SaveBadge({
+  state,
+  message,
+  dirty,
+}: {
+  state: SaveState;
+  message: string;
+  dirty: boolean;
+}) {
   if (state === "saving")
     return (
       <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
@@ -208,5 +248,7 @@ function SaveBadge({ state, message }: { state: SaveState; message: string }) {
     return (
       <span className="text-xs text-destructive">{message || "保存失败"}</span>
     );
+  if (dirty)
+    return <span className="text-xs text-muted-foreground">未保存…</span>;
   return null;
 }

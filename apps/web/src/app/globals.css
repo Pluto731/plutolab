@@ -257,3 +257,124 @@ button:active:not(:disabled),
   }
 }
 
+/* ─── CodeMirror Markdown 编辑器 (Phase 3.1.polish A.2-a) ────────── */
+
+/* 容器透明 + 撑高 (CodeMirror 默认有 box-shadow / border 都干掉) */
+.cm-editor {
+  background: transparent !important;
+  height: 100%;
+}
+.cm-editor.cm-focused {
+  outline: none !important;
+}
+
+/* 标题 — Lora 衬线 + 阶梯字号 */
+.cm-md-h1,
+.cm-md-h2,
+.cm-md-h3,
+.cm-md-h4,
+.cm-md-h5,
+.cm-md-h6 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+}
+.cm-md-h1 {
+  font-size: 1.75em;
+  line-height: 1.35;
+}
+.cm-md-h2 {
+  font-size: 1.4em;
+  line-height: 1.4;
+}
+.cm-md-h3 {
+  font-size: 1.2em;
+  line-height: 1.5;
+}
+.cm-md-h4 {
+  font-size: 1.05em;
+  line-height: 1.5;
+}
+
+/* 加粗 / 斜体 / 删除 */
+.cm-md-strong {
+  font-weight: 700;
+  color: inherit;
+}
+.cm-md-em {
+  font-style: italic;
+  color: inherit;
+}
+.cm-md-strike {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+/* 行内 code — 紫底等宽 */
+.cm-md-code-inline {
+  font-family: var(--font-mono), monospace;
+  background: oklch(0.7 0.2 320 / 0.12);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.92em;
+}
+.dark .cm-md-code-inline {
+  background: oklch(0.7 0.2 320 / 0.18);
+}
+
+/* 链接 */
+.cm-md-url,
+.cm-md-link {
+  color: oklch(0.55 0.2 285);
+  text-decoration: underline;
+  text-decoration-color: oklch(0.55 0.2 285 / 0.4);
+  text-underline-offset: 2px;
+}
+.dark .cm-md-url,
+.dark .cm-md-link {
+  color: oklch(0.72 0.2 285);
+}
+
+/* 引文 — 斜体 + 中灰 */
+.cm-md-quote {
+  color: oklch(0.5 0 0);
+  font-style: italic;
+}
+.dark .cm-md-quote {
+  color: oklch(0.78 0 0);
+}
+
+/* 列表项 markup (- / * / 1.) */
+.cm-md-list {
+  color: oklch(0.5 0.15 285);
+  font-weight: 600;
+}
+.dark .cm-md-list {
+  color: oklch(0.72 0.15 285);
+}
+
+/* 分隔线 (---) */
+.cm-md-hr {
+  color: oklch(0.7 0 0);
+  opacity: 0.6;
+}
+
+/* markup 字符 — # / ** / * / > / ` 等浅淡, 不抢视觉 */
+.cm-md-mark {
+  color: oklch(0.65 0 0);
+  opacity: 0.5;
+  font-weight: 400 !important;
+}
+.dark .cm-md-mark {
+  color: oklch(0.55 0 0);
+  opacity: 0.65;
+}
+
+/* 编辑器 placeholder (data-placeholder 实现, 空内容显示提示) */
+.cm-content[data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: oklch(0.65 0 0 / 0.6);
+  font-style: italic;
+  pointer-events: none;
+}
+
+
