@@ -163,7 +163,8 @@ export function NoteEditor({
           // A.2-b C.1: 打开 active line 类供 focus mode 用; 默认黄底由 CSS 透明覆盖
           highlightActiveLine: true,
           highlightActiveLineGutter: false,
-          searchKeymap: false,
+          // B.2: 启用 ⌘F / Ctrl+F 编辑器内搜索 panel
+          searchKeymap: true,
           bracketMatching: false,
           autocompletion: false,
           indentOnInput: false,
