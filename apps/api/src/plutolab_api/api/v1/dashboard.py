@@ -18,13 +18,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from plutolab_api.api.deps import OptionalUser
 from plutolab_api.db.deps import get_db
 from plutolab_api.models.note import Note
+from plutolab_api.models.task import Task
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
-# 取 dashboard 显示的最近笔记条数
+# 取 dashboard 显示的最近笔记 / 任务条数
 RECENT_NOTES_LIMIT = 5
+RECENT_TASKS_LIMIT = 5
 
 
 class ActivityItem(BaseModel):
@@ -32,6 +34,13 @@ class ActivityItem(BaseModel):
     title: str
     timestamp: str  # ISO 8601
     id: str | None = None  # 笔记/任务等可跳转的实体 id (展示性活动可缺省)
+
+
+class RecentTaskItem(BaseModel):
+    """Dashboard TasksCard 用 — 最近未完成任务."""
+
+    id: str
+    title: str
 
 
 class DashboardSummary(BaseModel):
@@ -46,6 +55,7 @@ class DashboardSummary(BaseModel):
     today_words: int  # 今天编辑/创建过的笔记 content 字符合计
     writing_streak: int  # 从今天往前推, 连续有笔记 updated 的天数
     recent_activities: list[ActivityItem]
+    recent_tasks: list[RecentTaskItem]  # 3.2.a: 最近未完成任务
 
 
 def _demo_summary() -> DashboardSummary:
@@ -83,6 +93,11 @@ def _demo_summary() -> DashboardSummary:
                 title="周报总结 Agent",
                 timestamp=(now - timedelta(hours=8)).isoformat(),
             ),
+        ],
+        recent_tasks=[
+            RecentTaskItem(id="demo-1", title="修 RAG 检索 bug"),
+            RecentTaskItem(id="demo-2", title="写 Phase 3 设计文档"),
+            RecentTaskItem(id="demo-3", title="整理 LLM 微调笔记"),
         ],
     )
 
@@ -154,10 +169,27 @@ async def _real_summary(db: AsyncSession, user_id: str) -> DashboardSummary:
     )
     writing_streak = _compute_streak(list(all_rows.all()))
 
+    # 任务: 未完成数 + 最近 N 条未完成任务
+    tasks_count = await db.scalar(
+        select(func.count())
+        .select_from(Task)
+        .where(Task.user_id == user_id, Task.done.is_(False))
+    )
+    tasks_count = int(tasks_count or 0)
+    recent_task_rows = await db.scalars(
+        select(Task)
+        .where(Task.user_id == user_id, Task.done.is_(False))
+        .order_by(Task.created_at.desc())
+        .limit(RECENT_TASKS_LIMIT)
+    )
+    recent_tasks = [
+        RecentTaskItem(id=str(t.id), title=t.title) for t in recent_task_rows.all()
+    ]
+
     return DashboardSummary(
         is_authenticated=True,
         notes_count=notes_count,
-        tasks_count=0,
+        tasks_count=tasks_count,
         rag_docs_count=0,
         agents_count=0,
         images_count=0,
@@ -166,6 +198,7 @@ async def _real_summary(db: AsyncSession, user_id: str) -> DashboardSummary:
         today_words=today_words,
         writing_streak=writing_streak,
         recent_activities=recent_activities,
+        recent_tasks=recent_tasks,
     )
 
 

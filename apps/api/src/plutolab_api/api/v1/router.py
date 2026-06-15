@@ -9,6 +9,7 @@ from plutolab_api.api.v1 import (
     db_health,
     health,
     notes,
+    tasks,
     users,
 )
 
@@ -20,3 +21,4 @@ api_router.include_router(users.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(api_keys.router)
 api_router.include_router(notes.router)
+api_router.include_router(tasks.router)

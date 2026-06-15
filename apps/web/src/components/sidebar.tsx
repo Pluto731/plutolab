@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import {
   Bot,
+  CheckSquare,
   FileText,
   Home,
   ImageIcon,
@@ -34,6 +35,7 @@ interface NavItem {
 const PRIMARY_ITEMS: NavItem[] = [
   { name: "工作台", href: "/dashboard", icon: Home },
   { name: "笔记", href: "/notes", icon: FileText },
+  { name: "任务", href: "/tasks", icon: CheckSquare },
   { name: "RAG", href: "/rag", icon: ScrollText, badge: "P4" },
   { name: "评审", href: "/review", icon: Sparkles, badge: "P5" },
   { name: "Agent", href: "/agents", icon: Bot, badge: "P6" },

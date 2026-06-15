@@ -9,6 +9,11 @@ export interface ActivityItem {
   id?: string;
 }
 
+export interface RecentTaskItem {
+  id: string;
+  title: string;
+}
+
 export interface DashboardSummary {
   is_authenticated: boolean;
   notes_count: number;
@@ -21,6 +26,7 @@ export interface DashboardSummary {
   today_words: number;
   writing_streak: number;
   recent_activities: ActivityItem[];
+  recent_tasks: RecentTaskItem[];
 }
 
 export async function fetchDashboard(): Promise<DashboardSummary> {

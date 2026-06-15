@@ -104,7 +104,7 @@ export default function DashboardPage() {
 
         {/* Tasks 6×1 */}
         <motion.div {...STAGGER} transition={STAGGER_TRANSITION(3)} className="md:col-span-6">
-          <TasksCard count={data.tasks_count} />
+          <TasksCard count={data.tasks_count} recent={data.recent_tasks} />
         </motion.div>
 
         {/* 3 张小 StatCard 4/4/4 */}
