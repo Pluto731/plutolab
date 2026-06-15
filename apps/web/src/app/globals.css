@@ -382,6 +382,18 @@ button:active:not(:disabled),
   background: transparent !important;
 }
 
+/* A.2-b C.2: 强制覆盖 caret 视觉 — 用足够高优先级杀掉默认蓝色"水滴" */
+.cm-editor .cm-cursorLayer .cm-cursor,
+.cm-editor .cm-dropCursor {
+  border-left-width: 1.5px !important;
+  border-left-color: oklch(0.55 0.2 285) !important;
+  border-left-style: solid !important;
+  background: transparent !important;
+}
+.cm-editor .cm-content {
+  caret-color: transparent !important;
+}
+
 /* fenced code block — 整段紫淡底 + 圆角边 (line decoration) */
 .cm-md-code-block-line {
   background: oklch(0.96 0.015 285);

@@ -1,7 +1,11 @@
 "use client";
 
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import {
+  defaultHighlightStyle,
+  HighlightStyle,
+  syntaxHighlighting,
+} from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
 import { tags as t } from "@lezer/highlight";
 import CodeMirror from "@uiw/react-codemirror";
@@ -104,6 +108,8 @@ export function NoteEditor({
     () => [
       markdown({ base: markdownLanguage, codeLanguages }),
       syntaxHighlighting(markdownHighlightStyle),
+      // 亮模式 fallback syntax highlight (暗模式用 @uiw oneDark 的)
+      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
       markdownLiveDecorations,
       editorTheme,
       EditorView.lineWrapping,
