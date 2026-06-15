@@ -5,6 +5,7 @@ export interface NoteSummary {
   id: string;
   title: string;
   excerpt: string;
+  tags: string[];
   created_at: string;
   updated_at: string;
 }
@@ -13,8 +14,14 @@ export interface NotePublic {
   id: string;
   title: string;
   content: string;
+  tags: string[];
   created_at: string;
   updated_at: string;
+}
+
+export interface TagWithCount {
+  name: string;
+  count: number;
 }
 
 function authHeaders(): Record<string, string> {
@@ -29,10 +36,17 @@ function detailMessage(data: unknown, fallback: string): string {
   return typeof detail === "string" ? detail : fallback;
 }
 
-export async function listNotes(): Promise<NoteSummary[]> {
-  const res = await fetch(`${API_URL}/api/v1/notes`, { headers: authHeaders() });
+export async function listNotes(tag?: string): Promise<NoteSummary[]> {
+  const qs = tag ? `?tag=${encodeURIComponent(tag)}` : "";
+  const res = await fetch(`${API_URL}/api/v1/notes${qs}`, { headers: authHeaders() });
   if (!res.ok) throw new Error(`notes ${res.status}`);
   return res.json() as Promise<NoteSummary[]>;
+}
+
+export async function listTags(): Promise<TagWithCount[]> {
+  const res = await fetch(`${API_URL}/api/v1/notes/tags`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`tags ${res.status}`);
+  return res.json() as Promise<TagWithCount[]>;
 }
 
 export async function getNote(id: string): Promise<NotePublic> {

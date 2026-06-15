@@ -6,6 +6,7 @@ import {
   Calendar,
   Clock4,
   FileText,
+  Hash,
   Loader2,
   Maximize2,
   Plus,
@@ -13,6 +14,7 @@ import {
   Sparkles,
   Trash2,
   Wand2,
+  X,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -42,8 +44,10 @@ import {
   deleteNote,
   getNote,
   listNotes,
+  listTags,
   type NotePublic,
   type NoteSummary,
+  type TagWithCount,
   updateNote,
 } from "@/lib/notes";
 import { cn } from "@/lib/utils";
@@ -87,9 +91,18 @@ export default function NotesPage() {
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
 
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+
   const { data: notes, isLoading } = useQuery<NoteSummary[]>({
-    queryKey: ["notes"],
-    queryFn: listNotes,
+    queryKey: ["notes", selectedTag],
+    queryFn: () => listNotes(selectedTag ?? undefined),
+    enabled: !!user,
+    staleTime: 10 * 1000,
+  });
+
+  const { data: tags } = useQuery<TagWithCount[]>({
+    queryKey: ["note-tags"],
+    queryFn: listTags,
     enabled: !!user,
     staleTime: 10 * 1000,
   });
@@ -117,10 +130,15 @@ export default function NotesPage() {
     });
   }, [notes, filter]);
 
+  const invalidateNotes = () => {
+    queryClient.invalidateQueries({ queryKey: ["notes"] });
+    queryClient.invalidateQueries({ queryKey: ["note-tags"] });
+  };
+
   const createMutation = useMutation({
     mutationFn: () => createNote({ title: "无标题笔记", content: "" }),
     onSuccess: (note) => {
-      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      invalidateNotes();
       setSelected(note.id);
     },
   });
@@ -128,7 +146,7 @@ export default function NotesPage() {
   const sampleMutation = useMutation({
     mutationFn: createSampleNote,
     onSuccess: (note) => {
-      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      invalidateNotes();
       setSelected(note.id);
     },
   });
@@ -136,7 +154,7 @@ export default function NotesPage() {
   const deleteMutation = useMutation({
     mutationFn: deleteNote,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["notes"] });
+      invalidateNotes();
       setSelected(null);
     },
   });
@@ -155,11 +173,14 @@ export default function NotesPage() {
         className="mx-auto flex w-full max-w-[1600px] gap-3 overflow-hidden rounded-2xl border border-white/40 bg-white/40 backdrop-blur-xl dark:border-white/[0.06] dark:bg-white/[0.02]"
         style={{ height: "calc(100vh - 6rem)" }}
       >
-        {/* 左栏 — 时间筛选 (仅 xl+) */}
+        {/* 左栏 — 时间筛选 + #hashtag 标签 (仅 xl+) */}
         <FilterColumn
           filter={filter}
           setFilter={setFilter}
           notes={notes}
+          tags={tags}
+          selectedTag={selectedTag}
+          setSelectedTag={setSelectedTag}
           createPending={createMutation.isPending}
           onCreate={() => createMutation.mutate()}
         />
@@ -194,12 +215,18 @@ function FilterColumn({
   filter,
   setFilter,
   notes,
+  tags,
+  selectedTag,
+  setSelectedTag,
   createPending,
   onCreate,
 }: {
   filter: Filter;
   setFilter: (f: Filter) => void;
   notes: NoteSummary[] | undefined;
+  tags: TagWithCount[] | undefined;
+  selectedTag: string | null;
+  setSelectedTag: (t: string | null) => void;
   createPending: boolean;
   onCreate: () => void;
 }) {
@@ -269,9 +296,63 @@ function FilterColumn({
         })}
       </ul>
 
-      <div className="mt-auto rounded-xl border border-dashed border-white/40 bg-white/30 p-3 text-xs text-muted-foreground dark:border-white/[0.05] dark:bg-white/[0.02]">
-        <p className="mb-1 font-semibold text-zinc-700 dark:text-zinc-300">提示</p>
-        Polish B 之后这里会变成 #hashtag 标签筛选。
+      {/* #hashtag 标签筛选 — B.1 */}
+      <div className="mt-5 flex min-h-0 flex-1 flex-col">
+        <div className="mb-2 flex items-center justify-between px-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            标签
+          </p>
+          {selectedTag && (
+            <button
+              type="button"
+              onClick={() => setSelectedTag(null)}
+              className="inline-flex items-center gap-0.5 text-[10px] text-violet-600 transition-colors hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300"
+            >
+              <X className="size-3" />
+              清除
+            </button>
+          )}
+        </div>
+        {!tags || tags.length === 0 ? (
+          <p className="px-3 text-xs italic text-muted-foreground">
+            在笔记里写 <span className="font-mono">#想法</span> 自动出现
+          </p>
+        ) : (
+          <ul className="flex flex-wrap gap-1.5 overflow-y-auto px-2 pb-2">
+            {tags.map((tag) => {
+              const active = selectedTag === tag.name.toLowerCase();
+              return (
+                <li key={tag.name}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedTag(active ? null : tag.name.toLowerCase())
+                    }
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-all",
+                      active
+                        ? "bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-sm shadow-fuchsia-500/30"
+                        : "border border-violet-500/20 bg-violet-500/5 text-violet-700 hover:bg-violet-500/15 dark:border-violet-400/25 dark:bg-violet-400/10 dark:text-violet-300 dark:hover:bg-violet-400/20",
+                    )}
+                  >
+                    <Hash className="size-3" />
+                    {tag.name}
+                    <span
+                      className={cn(
+                        "rounded px-1 text-[10px] font-mono",
+                        active
+                          ? "bg-white/25"
+                          : "bg-violet-500/15 dark:bg-violet-400/15",
+                      )}
+                    >
+                      {tag.count}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
     </aside>
   );

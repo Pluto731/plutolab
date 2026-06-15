@@ -209,6 +209,96 @@ class TestAuthAndIsolation:
         assert resp.status_code == 404
 
 
+class TestTags:
+    async def test_create_with_hashtags_in_content(self, client: AsyncClient) -> None:
+        h = await _auth(client, "tags-create@example.com")
+        resp = await client.post(
+            NOTES,
+            headers=h,
+            json={"title": "测试", "content": "学了 #python 和 #想法"},
+        )
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["tags"] == ["python", "想法"]
+
+    async def test_create_no_hashtags(self, client: AsyncClient) -> None:
+        h = await _auth(client, "no-tags@example.com")
+        resp = await client.post(
+            NOTES, headers=h, json={"title": "纯文本", "content": "没有标签"}
+        )
+        assert resp.json()["tags"] == []
+
+    async def test_patch_content_updates_tags(self, client: AsyncClient) -> None:
+        h = await _auth(client, "tags-patch@example.com")
+        created = await client.post(
+            NOTES, headers=h, json={"title": "T", "content": "无 tag"}
+        )
+        note_id = created.json()["id"]
+        assert created.json()["tags"] == []
+        # PATCH content 加 hashtag 后 tags 自动更新
+        patched = await client.patch(
+            f"{NOTES}/{note_id}",
+            headers=h,
+            json={"content": "现在有了 #new"},
+        )
+        assert patched.json()["tags"] == ["new"]
+
+    async def test_list_filter_by_tag(self, client: AsyncClient) -> None:
+        h = await _auth(client, "tags-filter@example.com")
+        await client.post(
+            NOTES, headers=h, json={"title": "P", "content": "学 #python"}
+        )
+        await client.post(
+            NOTES, headers=h, json={"title": "G", "content": "学 #go"}
+        )
+        await client.post(
+            NOTES, headers=h, json={"title": "PG", "content": "学 #python 和 #go"}
+        )
+        py_only = (await client.get(f"{NOTES}?tag=python", headers=h)).json()
+        go_only = (await client.get(f"{NOTES}?tag=go", headers=h)).json()
+        all_notes = (await client.get(NOTES, headers=h)).json()
+        assert len(py_only) == 2
+        assert len(go_only) == 2
+        assert len(all_notes) == 3
+
+    async def test_list_filter_tag_case_insensitive(self, client: AsyncClient) -> None:
+        h = await _auth(client, "tags-case@example.com")
+        await client.post(
+            NOTES, headers=h, json={"title": "C", "content": "#Python rocks"}
+        )
+        # 用小写查也能命中
+        resp = await client.get(f"{NOTES}?tag=python", headers=h)
+        assert len(resp.json()) == 1
+
+    async def test_tags_endpoint_returns_counts(self, client: AsyncClient) -> None:
+        h = await _auth(client, "tags-list@example.com")
+        await client.post(
+            NOTES, headers=h, json={"title": "1", "content": "#python"}
+        )
+        await client.post(
+            NOTES, headers=h, json={"title": "2", "content": "#python #go"}
+        )
+        await client.post(
+            NOTES, headers=h, json={"title": "3", "content": "#想法"}
+        )
+        resp = await client.get(f"{NOTES}/tags", headers=h)
+        assert resp.status_code == 200
+        body = resp.json()
+        names = {t["name"]: t["count"] for t in body}
+        assert names["python"] == 2
+        assert names["go"] == 1
+        assert names["想法"] == 1
+        # 按 count desc 排序: python 在前
+        assert body[0]["name"] == "python"
+
+    async def test_tags_isolated_per_user(self, client: AsyncClient) -> None:
+        alice = await _auth(client, "alice-tags@example.com")
+        bob = await _auth(client, "bob-tags@example.com")
+        await client.post(NOTES, headers=alice, json={"title": "A", "content": "#alice-secret"})
+        bob_tags = (await client.get(f"{NOTES}/tags", headers=bob)).json()
+        assert bob_tags == []
+
+
 class TestSampleNote:
     async def test_sample_endpoint_creates_with_expected_title(
         self, client: AsyncClient

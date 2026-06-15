@@ -163,3 +163,52 @@ export const markdownLiveDecorations = ViewPlugin.fromClass(
     decorations: (v) => v.decorations,
   },
 );
+
+/* ─── B.1: #hashtag inline mark (range decoration, 与 widget block 不同范式) ─── */
+
+const hashtagMark = Decoration.mark({ class: "cm-md-hashtag" });
+
+// 前置非字符 (含 `[^\w#]`) + # + 字字符 (含汉字). 与后端 core/hashtags.py 一致.
+const HASHTAG_RE = /(?:^|[^\w#])#([A-Za-z0-9_一-鿿]+)/gm;
+
+function buildHashtagDecorations(view: EditorView): DecorationSet {
+  const items: Range<Decoration>[] = [];
+  try {
+    for (const { from, to } of view.visibleRanges) {
+      const text = view.state.doc.sliceString(from, to);
+      // 重置正则 lastIndex (全局 g flag 状态有副作用)
+      HASHTAG_RE.lastIndex = 0;
+      let m: RegExpExecArray | null = HASHTAG_RE.exec(text);
+      while (m !== null) {
+        // m[0] 可能含前置字符 (空白 / 标点), 找到实际 # 位置
+        const hashOffset = m[0].indexOf("#");
+        const tagStart = from + m.index + hashOffset;
+        const tagEnd = tagStart + 1 + m[1].length;
+        items.push(hashtagMark.range(tagStart, tagEnd));
+        m = HASHTAG_RE.exec(text);
+      }
+    }
+  } catch (err) {
+    console.error("[markdown hashtag mark]", err);
+    return Decoration.none;
+  }
+  items.sort((a, b) => a.from - b.from);
+  return Decoration.set(items);
+}
+
+export const hashtagDecorations = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+    constructor(view: EditorView) {
+      this.decorations = buildHashtagDecorations(view);
+    }
+    update(update: ViewUpdate) {
+      if (update.docChanged || update.viewportChanged) {
+        this.decorations = buildHashtagDecorations(update.view);
+      }
+    }
+  },
+  {
+    decorations: (v) => v.decorations,
+  },
+);

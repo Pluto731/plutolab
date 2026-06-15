@@ -1,4 +1,4 @@
-"""Schemas for notes (Phase 3.1)."""
+"""Schemas for notes (Phase 3.1 + 3.1.polish B.1)."""
 
 from datetime import datetime
 from uuid import UUID
@@ -22,6 +22,7 @@ class NotePublic(BaseModel):
     id: UUID
     title: str
     content: str
+    tags: list[str]
     created_at: datetime
     updated_at: datetime
 
@@ -34,7 +35,15 @@ class NoteSummary(BaseModel):
     id: UUID
     title: str
     excerpt: str
+    tags: list[str]
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class TagWithCount(BaseModel):
+    """B.1 列表页左栏 tag 筛选 chip — 标签名 + 该用户带此标签的笔记数."""
+
+    name: str
+    count: int

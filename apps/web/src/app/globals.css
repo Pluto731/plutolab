@@ -382,6 +382,19 @@ button:active:not(:disabled),
   background: transparent !important;
 }
 
+/* B.1: #hashtag inline 高亮 — 紫色品牌色 + 浅紫底圆角 */
+.cm-md-hashtag {
+  color: oklch(0.5 0.2 285);
+  background: oklch(0.7 0.2 320 / 0.08);
+  padding: 0 4px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+.dark .cm-md-hashtag {
+  color: oklch(0.78 0.2 285);
+  background: oklch(0.7 0.2 320 / 0.16);
+}
+
 /* A.2-b C.4: ⌘. 专注模式 — data-focus-mode="true" 时其他行淡 32%, 光标行保留 */
 [data-focus-mode="true"] .cm-line {
   opacity: 0.32;
