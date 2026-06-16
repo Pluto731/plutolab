@@ -13,6 +13,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
+import plutolab_api.models.link  # noqa: F401  (register on Base.metadata)
 import plutolab_api.models.note  # noqa: F401  (register on Base.metadata)
 import plutolab_api.models.task  # noqa: F401  (register on Base.metadata)
 import plutolab_api.models.user  # (register on Base.metadata; referenced elsewhere)
