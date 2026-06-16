@@ -1,10 +1,14 @@
 import { API_URL } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 
+export type Priority = "low" | "normal" | "high";
+
 export interface TaskPublic {
   id: string;
   title: string;
   done: boolean;
+  priority: Priority;
+  due_date: string | null; // YYYY-MM-DD 或 null
   created_at: string;
   updated_at: string;
 }
@@ -27,11 +31,13 @@ export async function listTasks(): Promise<TaskPublic[]> {
   return res.json() as Promise<TaskPublic[]>;
 }
 
-export async function createTask(title: string): Promise<TaskPublic> {
+export async function createTask(
+  body: { title: string; priority?: Priority; due_date?: string | null },
+): Promise<TaskPublic> {
   const res = await fetch(`${API_URL}/api/v1/tasks`, {
     method: "POST",
     headers: authHeaders(),
-    body: JSON.stringify({ title }),
+    body: JSON.stringify(body),
   });
   const data: unknown = await res.json().catch(() => null);
   if (!res.ok) throw new Error(detailMessage(data, "创建失败"));
@@ -40,7 +46,7 @@ export async function createTask(title: string): Promise<TaskPublic> {
 
 export async function updateTask(
   id: string,
-  body: { title?: string; done?: boolean },
+  body: { title?: string; done?: boolean; priority?: Priority; due_date?: string | null },
 ): Promise<TaskPublic> {
   const res = await fetch(`${API_URL}/api/v1/tasks/${id}`, {
     method: "PATCH",

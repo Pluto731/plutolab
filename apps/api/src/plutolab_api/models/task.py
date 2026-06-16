@@ -3,10 +3,10 @@
 最朴素的 todo: title + done. 优先级 / 截止日期 / 子任务推到 3.2.b/c.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import Boolean, ForeignKey, String, text
+from sqlalchemy import Boolean, Date, ForeignKey, String, text
 from sqlalchemy.dialects.postgresql import UUID as PgUUID  # noqa: N811
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import DateTime
@@ -32,6 +32,12 @@ class Task(Base):
     done: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")
     )
+    # B: low / normal / high (用 String 不用 Enum, migration 简单)
+    priority: Mapped[str] = mapped_column(
+        String(10), nullable=False, server_default=text("'normal'")
+    )
+    # B: 截止日期 (可空)
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("clock_timestamp()")
     )

@@ -100,6 +100,80 @@ class TestDelete:
         assert resp.status_code == 404
 
 
+class TestPriorityAndDueDate:
+    async def test_create_default_priority_normal(self, client: AsyncClient) -> None:
+        h = await _auth(client, "prio-default@example.com")
+        resp = await client.post(TASKS, headers=h, json={"title": "T"})
+        body = resp.json()
+        assert body["priority"] == "normal"
+        assert body["due_date"] is None
+
+    async def test_create_with_priority_high(self, client: AsyncClient) -> None:
+        h = await _auth(client, "prio-high@example.com")
+        resp = await client.post(
+            TASKS, headers=h, json={"title": "T", "priority": "high"}
+        )
+        assert resp.json()["priority"] == "high"
+
+    async def test_create_invalid_priority_rejected(self, client: AsyncClient) -> None:
+        h = await _auth(client, "prio-bad@example.com")
+        resp = await client.post(
+            TASKS, headers=h, json={"title": "T", "priority": "urgent"}
+        )
+        assert resp.status_code == 422
+
+    async def test_create_with_due_date(self, client: AsyncClient) -> None:
+        h = await _auth(client, "due-create@example.com")
+        resp = await client.post(
+            TASKS, headers=h, json={"title": "T", "due_date": "2026-12-31"}
+        )
+        assert resp.json()["due_date"] == "2026-12-31"
+
+    async def test_patch_priority(self, client: AsyncClient) -> None:
+        h = await _auth(client, "prio-patch@example.com")
+        created = await client.post(TASKS, headers=h, json={"title": "T"})
+        task_id = created.json()["id"]
+        resp = await client.patch(
+            f"{TASKS}/{task_id}", headers=h, json={"priority": "low"}
+        )
+        assert resp.json()["priority"] == "low"
+
+    async def test_patch_due_date_set(self, client: AsyncClient) -> None:
+        h = await _auth(client, "due-patch@example.com")
+        created = await client.post(TASKS, headers=h, json={"title": "T"})
+        task_id = created.json()["id"]
+        resp = await client.patch(
+            f"{TASKS}/{task_id}", headers=h, json={"due_date": "2026-07-01"}
+        )
+        assert resp.json()["due_date"] == "2026-07-01"
+
+    async def test_patch_due_date_clear(self, client: AsyncClient) -> None:
+        h = await _auth(client, "due-clear@example.com")
+        created = await client.post(
+            TASKS, headers=h, json={"title": "T", "due_date": "2026-12-31"}
+        )
+        task_id = created.json()["id"]
+        # 显式传 null 清空
+        resp = await client.patch(
+            f"{TASKS}/{task_id}", headers=h, json={"due_date": None}
+        )
+        assert resp.json()["due_date"] is None
+
+    async def test_patch_done_keeps_priority(self, client: AsyncClient) -> None:
+        h = await _auth(client, "patch-partial@example.com")
+        created = await client.post(
+            TASKS, headers=h, json={"title": "T", "priority": "high"}
+        )
+        task_id = created.json()["id"]
+        # 只 PATCH done, priority 应保留
+        resp = await client.patch(
+            f"{TASKS}/{task_id}", headers=h, json={"done": True}
+        )
+        body = resp.json()
+        assert body["done"] is True
+        assert body["priority"] == "high"
+
+
 class TestAuthAndIsolation:
     async def test_requires_authentication(self, client: AsyncClient) -> None:
         assert (await client.get(TASKS)).status_code == 401

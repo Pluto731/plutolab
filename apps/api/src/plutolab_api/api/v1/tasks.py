@@ -46,7 +46,12 @@ async def list_tasks(user: CurrentUser, db: DbSession) -> list[Task]:
 async def create_task(
     body: TaskCreate, user: CurrentUser, db: DbSession
 ) -> Task:
-    task = Task(user_id=user.id, title=body.title)
+    task = Task(
+        user_id=user.id,
+        title=body.title,
+        priority=body.priority,
+        due_date=body.due_date,
+    )
     db.add(task)
     await db.commit()
     await db.refresh(task)
@@ -59,10 +64,17 @@ async def update_task(
     task_id: UUID, body: TaskUpdate, user: CurrentUser, db: DbSession
 ) -> Task:
     task = await _get_owned(db, task_id, user.id)
-    if body.title is not None:
-        task.title = body.title
-    if body.done is not None:
-        task.done = body.done
+    # Pydantic exclude_unset 区分 "未传" 与 "传 null". 业务: 未传保持原值,
+    # 传 null 清空 (仅 due_date 适用 — title/done/priority 不接受 null).
+    fields = body.model_dump(exclude_unset=True)
+    if "title" in fields and fields["title"] is not None:
+        task.title = fields["title"]
+    if "done" in fields and fields["done"] is not None:
+        task.done = fields["done"]
+    if "priority" in fields and fields["priority"] is not None:
+        task.priority = fields["priority"]
+    if "due_date" in fields:
+        task.due_date = fields["due_date"]  # 允许 None 清空
     await db.commit()
     await db.refresh(task)
     return task
