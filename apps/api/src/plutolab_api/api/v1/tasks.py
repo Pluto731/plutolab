@@ -46,13 +46,37 @@ async def list_tasks(user: CurrentUser, db: DbSession) -> list[Task]:
 async def create_task(
     body: TaskCreate, user: CurrentUser, db: DbSession
 ) -> Task:
-    # 新任务 sort_order = MIN(existing) - 1 让它在顶部 (Things / Todoist 直觉)
-    min_so = await db.scalar(
-        select(func.min(Task.sort_order)).where(Task.user_id == user.id)
-    )
-    new_order = (min_so - 1.0) if min_so is not None else 0.0
+    # 子任务: 校验 parent 存在 + 属于本人 + parent 本身不是子任务 (限制单层嵌套, 避 cycle).
+    parent_id = body.parent_id
+    if parent_id is not None:
+        parent = await db.get(Task, parent_id)
+        if parent is None or parent.user_id != user.id:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND, detail="Parent task not found"
+            )
+        if parent.parent_id is not None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="子任务不能再有子任务 (仅支持单层嵌套)",
+            )
+
+    # 顶层任务 sort_order = MIN(existing 顶层) - 1; 子任务 sort_order = MAX(siblings) + 1
+    if parent_id is None:
+        min_so = await db.scalar(
+            select(func.min(Task.sort_order)).where(
+                Task.user_id == user.id, Task.parent_id.is_(None)
+            )
+        )
+        new_order = (min_so - 1.0) if min_so is not None else 0.0
+    else:
+        max_so = await db.scalar(
+            select(func.max(Task.sort_order)).where(Task.parent_id == parent_id)
+        )
+        new_order = (max_so + 1.0) if max_so is not None else 0.0
+
     task = Task(
         user_id=user.id,
+        parent_id=parent_id,
         title=body.title,
         priority=body.priority,
         due_date=body.due_date,
@@ -61,7 +85,12 @@ async def create_task(
     db.add(task)
     await db.commit()
     await db.refresh(task)
-    logger.info("plutolab.task.created", user_id=str(user.id), task_id=str(task.id))
+    logger.info(
+        "plutolab.task.created",
+        user_id=str(user.id),
+        task_id=str(task.id),
+        parent_id=str(parent_id) if parent_id else None,
+    )
     return task
 
 
@@ -69,7 +98,11 @@ async def create_task(
 async def reorder_tasks(
     body: TaskReorderRequest, user: CurrentUser, db: DbSession
 ) -> None:
-    """按 ids 数组顺序重写 sort_order = 0, 1, 2, ... 仅本人任务可改, 未列出的任务 sort_order 不动."""
+    """按 ids 数组顺序重写 sort_order = 0, 1, 2, ... 仅本人任务可改, 未列出的任务 sort_order 不动.
+
+    一次只 reorder 同级 (全部顶层 或 同父下的子任务). 前端控制顺序合法性, 后端只做
+    用户隔离 + bulk 写.
+    """
     # 校验所有 id 都属于当前用户 — 防越权
     rows = await db.scalars(
         select(Task).where(

@@ -176,10 +176,15 @@ async def _real_summary(db: AsyncSession, user_id: str) -> DashboardSummary:
         .where(Task.user_id == user_id, Task.done.is_(False))
     )
     tasks_count = int(tasks_count or 0)
+    # B C-2: dashboard 只展示顶层未完成任务, 避免显示子任务但父任务缺席
     recent_task_rows = await db.scalars(
         select(Task)
-        .where(Task.user_id == user_id, Task.done.is_(False))
-        .order_by(Task.created_at.desc())
+        .where(
+            Task.user_id == user_id,
+            Task.done.is_(False),
+            Task.parent_id.is_(None),
+        )
+        .order_by(Task.sort_order.asc(), Task.created_at.desc())
         .limit(RECENT_TASKS_LIMIT)
     )
     recent_tasks = [

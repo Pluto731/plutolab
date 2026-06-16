@@ -23,6 +23,8 @@ import {
   Calendar,
   CalendarClock,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Circle,
   Flag,
   GripVertical,
@@ -49,6 +51,10 @@ import {
 import { cn } from "@/lib/utils";
 
 type View = "all" | "today" | "week" | "overdue";
+
+interface TaskWithChildren extends TaskPublic {
+  children: TaskPublic[];
+}
 
 const VIEWS: { key: View; label: string }[] = [
   { key: "all", label: "全部" },
@@ -136,6 +142,10 @@ export default function TasksPage() {
 
   const [newTitle, setNewTitle] = useState("");
   const [view, setView] = useState<View>("all");
+  // C-2: 默认全部展开; 用户折叠时记 collapsed set (state 反向避免冷启动闪折叠)
+  const [collapsedParents, setCollapsedParents] = useState<Set<string>>(new Set());
+  // 当前正在添加子任务的 parent id (null = 没有)
+  const [addingSubFor, setAddingSubFor] = useState<string | null>(null);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -148,6 +158,13 @@ export default function TasksPage() {
       invalidate();
       setNewTitle("");
     },
+  });
+
+  // C-2: 创建子任务 (independent mutation 不重置 newTitle)
+  const createSubMutation = useMutation({
+    mutationFn: ({ title, parent_id }: { title: string; parent_id: string }) =>
+      createTask({ title, parent_id }),
+    onSuccess: invalidate,
   });
 
   const toggleMutation = useMutation({
@@ -195,15 +212,37 @@ export default function TasksPage() {
     } satisfies Record<View, number>;
   }, [tasks]);
 
+  // C-2: 视图过滤只在顶层任务级别. 子任务跟随父任务显示 (不参与视图过滤)
   const { undone, done } = useMemo(() => {
-    if (!tasks) return { undone: [] as TaskPublic[], done: [] as TaskPublic[] };
-    const filtered = tasks.filter((t) => matchesView(t, view));
-    // 全部视图按 sort_order asc (用户手动排序); 其他视图加综合 sortKey 因为视图本身已过滤
-    const u =
+    if (!tasks)
+      return {
+        undone: [] as TaskWithChildren[],
+        done: [] as TaskWithChildren[],
+      };
+
+    // 按 parent_id 分组建索引
+    const childMap = new Map<string, TaskPublic[]>();
+    for (const t of tasks) {
+      if (t.parent_id) {
+        const arr = childMap.get(t.parent_id) ?? [];
+        arr.push(t);
+        childMap.set(t.parent_id, arr);
+      }
+    }
+    const withChildren = (p: TaskPublic): TaskWithChildren => ({
+      ...p,
+      children: (childMap.get(p.id) ?? []).sort(
+        (a, b) => a.sort_order - b.sort_order,
+      ),
+    });
+
+    const tops = tasks.filter((t) => !t.parent_id && matchesView(t, view));
+    const sortFn =
       view === "all"
-        ? filtered.filter((t) => !t.done).sort((a, b) => a.sort_order - b.sort_order)
-        : filtered.filter((t) => !t.done).sort((a, b) => sortKey(a) - sortKey(b));
-    const d = filtered.filter((t) => t.done);
+        ? (a: TaskPublic, b: TaskPublic) => a.sort_order - b.sort_order
+        : (a: TaskPublic, b: TaskPublic) => sortKey(a) - sortKey(b);
+    const u = tops.filter((t) => !t.done).sort(sortFn).map(withChildren);
+    const d = tops.filter((t) => t.done).map(withChildren);
     return { undone: u, done: d };
   }, [tasks, view]);
 
@@ -329,6 +368,23 @@ export default function TasksPage() {
                         key={task.id}
                         task={task}
                         draggable={view === "all"}
+                        collapsed={collapsedParents.has(task.id)}
+                        onToggleCollapse={() =>
+                          setCollapsedParents((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(task.id)) next.delete(task.id);
+                            else next.add(task.id);
+                            return next;
+                          })
+                        }
+                        onAddSub={() => {
+                          setCollapsedParents((prev) => {
+                            const next = new Set(prev);
+                            next.delete(task.id);
+                            return next;
+                          });
+                          setAddingSubFor(task.id);
+                        }}
                         onToggle={() => toggleMutation.mutate({ id: task.id, done: true })}
                         onCyclePriority={() =>
                           priorityMutation.mutate({
@@ -338,7 +394,55 @@ export default function TasksPage() {
                         }
                         onChangeDue={(d) => dueMutation.mutate({ id: task.id, due_date: d })}
                         onDelete={() => deleteMutation.mutate(task.id)}
-                      />
+                      >
+                        {/* 子任务区域 */}
+                        {(task.children.length > 0 || addingSubFor === task.id) &&
+                          !collapsedParents.has(task.id) && (
+                            <div className="border-t border-border/40 bg-card/30">
+                              {task.children.map((sub) => (
+                                <div
+                                  key={sub.id}
+                                  className="border-b border-border/30 pl-12 last:border-b-0"
+                                >
+                                  <TaskRow
+                                    task={sub}
+                                    onToggle={() =>
+                                      toggleMutation.mutate({
+                                        id: sub.id,
+                                        done: !sub.done,
+                                      })
+                                    }
+                                    onCyclePriority={() =>
+                                      priorityMutation.mutate({
+                                        id: sub.id,
+                                        priority: PRIORITY_CYCLE[sub.priority],
+                                      })
+                                    }
+                                    onChangeDue={(d) =>
+                                      dueMutation.mutate({
+                                        id: sub.id,
+                                        due_date: d,
+                                      })
+                                    }
+                                    onDelete={() => deleteMutation.mutate(sub.id)}
+                                  />
+                                </div>
+                              ))}
+                              {addingSubFor === task.id && (
+                                <SubAddInput
+                                  pending={createSubMutation.isPending}
+                                  onSubmit={(title) =>
+                                    createSubMutation.mutate(
+                                      { title, parent_id: task.id },
+                                      { onSuccess: () => setAddingSubFor(null) },
+                                    )
+                                  }
+                                  onCancel={() => setAddingSubFor(null)}
+                                />
+                              )}
+                            </div>
+                          )}
+                      </SortableTaskRow>
                     ))}
                   </ul>
                 </SortableContext>
@@ -375,6 +479,37 @@ export default function TasksPage() {
                         onChangeDue={(d) => dueMutation.mutate({ id: task.id, due_date: d })}
                         onDelete={() => deleteMutation.mutate(task.id)}
                       />
+                      {/* 子任务区域 (已完成父任务仍显示子任务列表, 不显示添加 input) */}
+                      {task.children.length > 0 && (
+                        <div className="border-t border-border/40 bg-card/30">
+                          {task.children.map((sub) => (
+                            <div
+                              key={sub.id}
+                              className="border-b border-border/30 pl-12 last:border-b-0"
+                            >
+                              <TaskRow
+                                task={sub}
+                                onToggle={() =>
+                                  toggleMutation.mutate({
+                                    id: sub.id,
+                                    done: !sub.done,
+                                  })
+                                }
+                                onCyclePriority={() =>
+                                  priorityMutation.mutate({
+                                    id: sub.id,
+                                    priority: PRIORITY_CYCLE[sub.priority],
+                                  })
+                                }
+                                onChangeDue={(d) =>
+                                  dueMutation.mutate({ id: sub.id, due_date: d })
+                                }
+                                onDelete={() => deleteMutation.mutate(sub.id)}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </motion.li>
                   ))}
                 </AnimatePresence>
@@ -443,6 +578,7 @@ interface TaskRowProps {
   onDelete: () => void;
   dragHandle?: React.ReactNode;
   dragging?: boolean;
+  extraRight?: React.ReactNode;
 }
 
 function TaskRow({
@@ -453,6 +589,7 @@ function TaskRow({
   onDelete,
   dragHandle,
   dragging,
+  extraRight,
 }: TaskRowProps) {
   return (
     <div
@@ -486,6 +623,7 @@ function TaskRow({
       {!task.done && (
         <PriorityDot priority={task.priority} onCycle={onCyclePriority} />
       )}
+      {extraRight}
       <button
         type="button"
         onClick={onDelete}
@@ -501,8 +639,19 @@ function TaskRow({
 function SortableTaskRow({
   task,
   draggable,
+  collapsed,
+  onToggleCollapse,
+  onAddSub,
+  children: subRows,
   ...rest
-}: TaskRowProps & { draggable: boolean }) {
+}: TaskRowProps & {
+  task: TaskWithChildren;
+  draggable: boolean;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+  onAddSub: () => void;
+  children?: React.ReactNode;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id, disabled: !draggable });
   const style = {
@@ -512,7 +661,6 @@ function SortableTaskRow({
   const handle = draggable ? (
     <button
       type="button"
-      ref={undefined}
       {...attributes}
       {...listeners}
       aria-label="拖动排序"
@@ -530,8 +678,110 @@ function SortableTaskRow({
         isDragging && "z-10",
       )}
     >
-      <TaskRow {...rest} task={task} dragHandle={handle} dragging={isDragging} />
+      <TaskRow
+        {...rest}
+        task={task}
+        dragHandle={handle}
+        dragging={isDragging}
+        extraRight={
+          !task.done ? (
+            <SubtaskControls
+              childCount={task.children.length}
+              collapsed={collapsed}
+              onToggleCollapse={onToggleCollapse}
+              onAddSub={onAddSub}
+            />
+          ) : null
+        }
+      />
+      {subRows}
     </li>
+  );
+}
+
+function SubtaskControls({
+  childCount,
+  collapsed,
+  onToggleCollapse,
+  onAddSub,
+}: {
+  childCount: number;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+  onAddSub: () => void;
+}) {
+  return (
+    <div className="flex shrink-0 items-center">
+      {childCount > 0 && (
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          aria-label={collapsed ? "展开子任务" : "折叠子任务"}
+          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          {collapsed ? <ChevronRight className="size-3" /> : <ChevronDown className="size-3" />}
+          <span className="font-mono tabular-nums">{childCount}</span>
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={onAddSub}
+        aria-label="加子任务"
+        className="rounded-md p-1 text-muted-foreground opacity-0 transition-all hover:bg-accent hover:text-emerald-500 group-hover:opacity-100"
+      >
+        <Plus className="size-3.5" />
+      </button>
+    </div>
+  );
+}
+
+function SubAddInput({
+  pending,
+  onSubmit,
+  onCancel,
+}: {
+  pending: boolean;
+  onSubmit: (title: string) => void;
+  onCancel: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    ref.current?.focus();
+  }, []);
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const t = title.trim();
+        if (!t) {
+          onCancel();
+          return;
+        }
+        onSubmit(t);
+        setTitle("");
+      }}
+      className="flex items-center gap-2 border-b border-border/30 pl-12 pr-4 py-2.5 last:border-b-0"
+    >
+      <Plus className="size-3.5 shrink-0 text-emerald-500" />
+      <input
+        ref={ref}
+        type="text"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onCancel();
+        }}
+        onBlur={() => {
+          if (!title.trim()) onCancel();
+        }}
+        placeholder="加子任务，回车保存 (Esc 取消)"
+        maxLength={200}
+        disabled={pending}
+        className="flex-1 bg-transparent text-sm placeholder:text-muted-foreground/60 focus:outline-none disabled:opacity-50"
+      />
+      {pending && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
+    </form>
   );
 }
 

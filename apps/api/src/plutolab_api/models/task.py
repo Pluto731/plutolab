@@ -28,6 +28,13 @@ class Task(Base):
         nullable=False,
         index=True,
     )
+    # C-2: 父任务 id (子任务嵌套). 父删时 CASCADE 删子. 顶层任务 parent_id = NULL.
+    parent_id: Mapped[UUID | None] = mapped_column(
+        PgUUID(as_uuid=True),
+        ForeignKey("tasks.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     done: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("false")

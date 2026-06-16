@@ -5,6 +5,7 @@ export type Priority = "low" | "normal" | "high";
 
 export interface TaskPublic {
   id: string;
+  parent_id: string | null;
   title: string;
   done: boolean;
   priority: Priority;
@@ -33,7 +34,12 @@ export async function listTasks(): Promise<TaskPublic[]> {
 }
 
 export async function createTask(
-  body: { title: string; priority?: Priority; due_date?: string | null },
+  body: {
+    title: string;
+    priority?: Priority;
+    due_date?: string | null;
+    parent_id?: string | null;
+  },
 ): Promise<TaskPublic> {
   const res = await fetch(`${API_URL}/api/v1/tasks`, {
     method: "POST",

@@ -221,6 +221,89 @@ class TestSortOrder:
         assert resp.status_code == 401
 
 
+class TestSubtasks:
+    async def test_create_subtask(self, client: AsyncClient) -> None:
+        h = await _auth(client, "sub-create@example.com")
+        parent = await client.post(TASKS, headers=h, json={"title": "父"})
+        parent_id = parent.json()["id"]
+        sub = await client.post(
+            TASKS,
+            headers=h,
+            json={"title": "子", "parent_id": parent_id},
+        )
+        assert sub.status_code == 201
+        assert sub.json()["parent_id"] == parent_id
+
+    async def test_top_task_parent_id_is_null(self, client: AsyncClient) -> None:
+        h = await _auth(client, "top-null@example.com")
+        resp = await client.post(TASKS, headers=h, json={"title": "顶层"})
+        assert resp.json()["parent_id"] is None
+
+    async def test_subtask_cannot_have_subtask(self, client: AsyncClient) -> None:
+        h = await _auth(client, "sub-nested@example.com")
+        parent = await client.post(TASKS, headers=h, json={"title": "父"})
+        parent_id = parent.json()["id"]
+        sub = await client.post(
+            TASKS, headers=h, json={"title": "子", "parent_id": parent_id}
+        )
+        sub_id = sub.json()["id"]
+        # 子任务再加子 应 400
+        resp = await client.post(
+            TASKS, headers=h, json={"title": "孙", "parent_id": sub_id}
+        )
+        assert resp.status_code == 400
+
+    async def test_cannot_use_other_user_parent_id(
+        self, client: AsyncClient
+    ) -> None:
+        alice = await _auth(client, "alice-parent@example.com")
+        bob = await _auth(client, "bob-parent@example.com")
+        a_parent = await client.post(TASKS, headers=alice, json={"title": "Alice 父"})
+        resp = await client.post(
+            TASKS,
+            headers=bob,
+            json={"title": "Bob 子", "parent_id": a_parent.json()["id"]},
+        )
+        assert resp.status_code == 404
+
+    async def test_delete_parent_cascades_subtasks(
+        self, client: AsyncClient
+    ) -> None:
+        h = await _auth(client, "sub-cascade@example.com")
+        parent = await client.post(TASKS, headers=h, json={"title": "父"})
+        parent_id = parent.json()["id"]
+        await client.post(
+            TASKS, headers=h, json={"title": "子 1", "parent_id": parent_id}
+        )
+        await client.post(
+            TASKS, headers=h, json={"title": "子 2", "parent_id": parent_id}
+        )
+        before = (await client.get(TASKS, headers=h)).json()
+        assert len(before) == 3  # 父 + 2 子
+        await client.delete(f"{TASKS}/{parent_id}", headers=h)
+        after = (await client.get(TASKS, headers=h)).json()
+        assert after == []  # CASCADE 删了子任务
+
+    async def test_subtask_sort_order_appends_to_end(
+        self, client: AsyncClient
+    ) -> None:
+        h = await _auth(client, "sub-sort@example.com")
+        parent = await client.post(TASKS, headers=h, json={"title": "父"})
+        parent_id = parent.json()["id"]
+        for title in ["子A", "子B", "子C"]:
+            await client.post(
+                TASKS,
+                headers=h,
+                json={"title": title, "parent_id": parent_id},
+            )
+        items = (await client.get(TASKS, headers=h)).json()
+        subs = sorted(
+            (t for t in items if t["parent_id"] == parent_id),
+            key=lambda t: t["sort_order"],
+        )
+        assert [t["title"] for t in subs] == ["子A", "子B", "子C"]
+
+
 class TestAuthAndIsolation:
     async def test_requires_authentication(self, client: AsyncClient) -> None:
         assert (await client.get(TASKS)).status_code == 401

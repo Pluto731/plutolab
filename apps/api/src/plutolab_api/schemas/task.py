@@ -13,6 +13,7 @@ class TaskCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     priority: Priority = "normal"
     due_date: date | None = None
+    parent_id: UUID | None = None  # C-2: 创建子任务时传父 id
 
 
 class TaskUpdate(BaseModel):
@@ -25,6 +26,7 @@ class TaskUpdate(BaseModel):
 
 class TaskPublic(BaseModel):
     id: UUID
+    parent_id: UUID | None
     title: str
     done: bool
     priority: Priority
