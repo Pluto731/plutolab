@@ -9,6 +9,7 @@ export interface TaskPublic {
   done: boolean;
   priority: Priority;
   due_date: string | null; // YYYY-MM-DD 或 null
+  sort_order: number;
   created_at: string;
   updated_at: string;
 }
@@ -56,6 +57,19 @@ export async function updateTask(
   const data: unknown = await res.json().catch(() => null);
   if (!res.ok) throw new Error(detailMessage(data, "更新失败"));
   return data as TaskPublic;
+}
+
+/** C-1: 按 ids 顺序重写 sort_order (0, 1, 2, ...). 仅本人任务可改. */
+export async function reorderTasks(ids: string[]): Promise<void> {
+  const res = await fetch(`${API_URL}/api/v1/tasks/reorder`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ ids }),
+  });
+  if (!res.ok && res.status !== 204) {
+    const data: unknown = await res.json().catch(() => null);
+    throw new Error(detailMessage(data, "排序失败"));
+  }
 }
 
 export async function deleteTask(id: string): Promise<void> {

@@ -6,7 +6,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import Boolean, Date, ForeignKey, String, text
+from sqlalchemy import Boolean, Date, Float, ForeignKey, String, text
 from sqlalchemy.dialects.postgresql import UUID as PgUUID  # noqa: N811
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import DateTime
@@ -38,6 +38,11 @@ class Task(Base):
     )
     # B: 截止日期 (可空)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # C-1: 手动排序权重. 新建时取 MIN(existing) - 1 让新任务在顶部.
+    # reorder API bulk 写时按数组顺序 0, 1, 2, ...
+    sort_order: Mapped[float] = mapped_column(
+        Float, nullable=False, server_default=text("0")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("clock_timestamp()")
     )

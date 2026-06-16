@@ -1,5 +1,22 @@
 "use client";
 
+import {
+  closestCenter,
+  DndContext,
+  type DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -8,6 +25,7 @@ import {
   CheckCircle2,
   Circle,
   Flag,
+  GripVertical,
   Loader2,
   Plus,
   Sparkles,
@@ -24,6 +42,7 @@ import {
   deleteTask,
   listTasks,
   type Priority,
+  reorderTasks,
   type TaskPublic,
   updateTask,
 } from "@/lib/tasks";
@@ -154,6 +173,16 @@ export default function TasksPage() {
     onSuccess: invalidate,
   });
 
+  // C-1: 拖拽排序
+  const reorderMutation = useMutation({
+    mutationFn: (ids: string[]) => reorderTasks(ids),
+    onSuccess: invalidate,
+  });
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
   // 视图计数 (仅未完成参与计数)
   const viewCounts = useMemo(() => {
     if (!tasks) return { all: 0, today: 0, week: 0, overdue: 0 } as Record<View, number>;
@@ -169,10 +198,33 @@ export default function TasksPage() {
   const { undone, done } = useMemo(() => {
     if (!tasks) return { undone: [] as TaskPublic[], done: [] as TaskPublic[] };
     const filtered = tasks.filter((t) => matchesView(t, view));
-    const u = filtered.filter((t) => !t.done).sort((a, b) => sortKey(a) - sortKey(b));
+    // 全部视图按 sort_order asc (用户手动排序); 其他视图加综合 sortKey 因为视图本身已过滤
+    const u =
+      view === "all"
+        ? filtered.filter((t) => !t.done).sort((a, b) => a.sort_order - b.sort_order)
+        : filtered.filter((t) => !t.done).sort((a, b) => sortKey(a) - sortKey(b));
     const d = filtered.filter((t) => t.done);
     return { undone: u, done: d };
   }, [tasks, view]);
+
+  const onDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const oldIndex = undone.findIndex((t) => t.id === active.id);
+    const newIndex = undone.findIndex((t) => t.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const newUndone = arrayMove(undone, oldIndex, newIndex);
+    // 乐观更新缓存, 让 UI 立刻看到新顺序 (不等 API)
+    queryClient.setQueryData<TaskPublic[]>(["tasks"], (old) => {
+      if (!old) return old;
+      const map = new Map(newUndone.map((t, i) => [t.id, i]));
+      // 重写未完成任务 sort_order 让前端 sort 命中新顺序
+      return old.map((t) =>
+        !t.done && map.has(t.id) ? { ...t, sort_order: map.get(t.id)! } : t,
+      );
+    });
+    reorderMutation.mutate(newUndone.map((t) => t.id));
+  };
 
   const onSubmitNew = (e: React.FormEvent) => {
     e.preventDefault();
@@ -254,23 +306,29 @@ export default function TasksPage() {
         <div className="space-y-5">
           {undone.length > 0 && (
             <section>
-              <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="mb-2 flex items-center gap-2 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 待办 · {undone.length}
+                {view === "all" && undone.length > 1 && (
+                  <span className="font-normal normal-case tracking-normal">
+                    （拖动排序）
+                  </span>
+                )}
               </p>
-              <ul className="overflow-hidden rounded-2xl border border-border bg-card/80 shadow-sm backdrop-blur">
-                <AnimatePresence initial={false}>
-                  {undone.map((task) => (
-                    <motion.li
-                      key={task.id}
-                      layout
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 24, height: 0, transition: { duration: 0.18 } }}
-                      transition={{ duration: 0.22 }}
-                      className="border-b border-border/50 last:border-b-0"
-                    >
-                      <TaskRow
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={onDragEnd}
+              >
+                <SortableContext
+                  items={undone.map((t) => t.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <ul className="overflow-hidden rounded-2xl border border-border bg-card/80 shadow-sm backdrop-blur">
+                    {undone.map((task) => (
+                      <SortableTaskRow
+                        key={task.id}
                         task={task}
+                        draggable={view === "all"}
                         onToggle={() => toggleMutation.mutate({ id: task.id, done: true })}
                         onCyclePriority={() =>
                           priorityMutation.mutate({
@@ -281,10 +339,10 @@ export default function TasksPage() {
                         onChangeDue={(d) => dueMutation.mutate({ id: task.id, due_date: d })}
                         onDelete={() => deleteMutation.mutate(task.id)}
                       />
-                    </motion.li>
-                  ))}
-                </AnimatePresence>
-              </ul>
+                    ))}
+                  </ul>
+                </SortableContext>
+              </DndContext>
             </section>
           )}
 
@@ -375,7 +433,17 @@ function ViewTabs({
   );
 }
 
-/* ─── TaskRow ─── */
+/* ─── TaskRow + SortableTaskRow ─── */
+
+interface TaskRowProps {
+  task: TaskPublic;
+  onToggle: () => void;
+  onCyclePriority: () => void;
+  onChangeDue: (d: string | null) => void;
+  onDelete: () => void;
+  dragHandle?: React.ReactNode;
+  dragging?: boolean;
+}
 
 function TaskRow({
   task,
@@ -383,15 +451,17 @@ function TaskRow({
   onCyclePriority,
   onChangeDue,
   onDelete,
-}: {
-  task: TaskPublic;
-  onToggle: () => void;
-  onCyclePriority: () => void;
-  onChangeDue: (d: string | null) => void;
-  onDelete: () => void;
-}) {
+  dragHandle,
+  dragging,
+}: TaskRowProps) {
   return (
-    <div className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/30">
+    <div
+      className={cn(
+        "group flex items-center gap-2 px-4 py-3 transition-colors hover:bg-accent/30",
+        dragging && "bg-accent/40 shadow-lg ring-1 ring-emerald-500/20",
+      )}
+    >
+      {dragHandle}
       <button
         type="button"
         onClick={onToggle}
@@ -425,6 +495,43 @@ function TaskRow({
         <Trash2 className="size-4" />
       </button>
     </div>
+  );
+}
+
+function SortableTaskRow({
+  task,
+  draggable,
+  ...rest
+}: TaskRowProps & { draggable: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: task.id, disabled: !draggable });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+  const handle = draggable ? (
+    <button
+      type="button"
+      ref={undefined}
+      {...attributes}
+      {...listeners}
+      aria-label="拖动排序"
+      className="cursor-grab touch-none rounded p-1 text-muted-foreground/50 opacity-0 transition-all hover:text-foreground group-hover:opacity-100 active:cursor-grabbing"
+    >
+      <GripVertical className="size-4" />
+    </button>
+  ) : null;
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "border-b border-border/50 last:border-b-0",
+        isDragging && "z-10",
+      )}
+    >
+      <TaskRow {...rest} task={task} dragHandle={handle} dragging={isDragging} />
+    </li>
   );
 }
 

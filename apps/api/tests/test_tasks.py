@@ -174,6 +174,53 @@ class TestPriorityAndDueDate:
         assert body["priority"] == "high"
 
 
+class TestSortOrder:
+    async def test_new_task_goes_to_top(self, client: AsyncClient) -> None:
+        h = await _auth(client, "sort-top@example.com")
+        # 创建 3 个任务, 依次按时间顺序
+        for title in ["第一", "第二", "第三"]:
+            await client.post(TASKS, headers=h, json={"title": title})
+        items = (await client.get(TASKS, headers=h)).json()
+        # 最新建的 "第三" 在顶 (sort_order 最小)
+        titles = [t["title"] for t in items]
+        assert titles == ["第三", "第二", "第一"]
+        # sort_order 严格递增
+        orders = [t["sort_order"] for t in items]
+        assert orders == sorted(orders)
+
+    async def test_reorder_bulk(self, client: AsyncClient) -> None:
+        h = await _auth(client, "sort-bulk@example.com")
+        created_ids = []
+        for title in ["A", "B", "C"]:
+            r = await client.post(TASKS, headers=h, json={"title": title})
+            created_ids.append(r.json()["id"])
+        # 当前顺序: C, B, A (新的在顶). 反转成 A, B, C.
+        reordered = [created_ids[0], created_ids[1], created_ids[2]]  # A, B, C
+        resp = await client.post(
+            f"{TASKS}/reorder", headers=h, json={"ids": reordered}
+        )
+        assert resp.status_code == 204
+        items = (await client.get(TASKS, headers=h)).json()
+        assert [t["title"] for t in items] == ["A", "B", "C"]
+
+    async def test_reorder_rejects_other_user_id(self, client: AsyncClient) -> None:
+        alice = await _auth(client, "alice-reorder@example.com")
+        bob = await _auth(client, "bob-reorder@example.com")
+        a_task = (await client.post(TASKS, headers=alice, json={"title": "A"})).json()
+        b_task = (await client.post(TASKS, headers=bob, json={"title": "B"})).json()
+        # bob 试图 reorder 中混 alice 的 id 应 404
+        resp = await client.post(
+            f"{TASKS}/reorder",
+            headers=bob,
+            json={"ids": [b_task["id"], a_task["id"]]},
+        )
+        assert resp.status_code == 404
+
+    async def test_reorder_requires_auth(self, client: AsyncClient) -> None:
+        resp = await client.post(f"{TASKS}/reorder", json={"ids": [str(uuid4())]})
+        assert resp.status_code == 401
+
+
 class TestAuthAndIsolation:
     async def test_requires_authentication(self, client: AsyncClient) -> None:
         assert (await client.get(TASKS)).status_code == 401
