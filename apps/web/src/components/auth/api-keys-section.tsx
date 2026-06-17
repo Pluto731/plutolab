@@ -18,6 +18,7 @@ import {
 const PROVIDERS: { value: ApiKeyProvider; label: string; gradient: string }[] = [
   { value: "anthropic", label: "Anthropic", gradient: "from-amber-500 to-orange-500" },
   { value: "openai", label: "OpenAI", gradient: "from-emerald-500 to-teal-500" },
+  { value: "deepseek", label: "DeepSeek", gradient: "from-blue-500 to-violet-500" },
   { value: "replicate", label: "Replicate", gradient: "from-sky-500 to-indigo-500" },
 ];
 

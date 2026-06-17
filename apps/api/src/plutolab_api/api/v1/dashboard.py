@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from plutolab_api.api.deps import OptionalUser
 from plutolab_api.db.deps import get_db
 from plutolab_api.models.note import Note
+from plutolab_api.models.pomodoro import PomodoroSession
 from plutolab_api.models.task import Task
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -54,6 +55,7 @@ class DashboardSummary(BaseModel):
     tokens_limit: int
     today_words: int  # 今天编辑/创建过的笔记 content 字符合计
     writing_streak: int  # 从今天往前推, 连续有笔记 updated 的天数
+    pomodoros_today: int  # 3.4: 今天完成的专注番茄数 (短/长休不计)
     recent_activities: list[ActivityItem]
     recent_tasks: list[RecentTaskItem]  # 3.2.a: 最近未完成任务
 
@@ -72,6 +74,7 @@ def _demo_summary() -> DashboardSummary:
         tokens_limit=100_000,
         today_words=1_240,
         writing_streak=5,
+        pomodoros_today=4,
         recent_activities=[
             ActivityItem(
                 kind="note",
@@ -176,6 +179,21 @@ async def _real_summary(db: AsyncSession, user_id: str) -> DashboardSummary:
         .where(Task.user_id == user_id, Task.done.is_(False))
     )
     tasks_count = int(tasks_count or 0)
+
+    # 番茄钟: 今天完成的专注番茄数 (短/长休不计)
+    today_start = datetime.combine(
+        datetime.now(UTC).date(), datetime.min.time(), tzinfo=UTC
+    )
+    pomodoros_today = await db.scalar(
+        select(func.count())
+        .select_from(PomodoroSession)
+        .where(
+            PomodoroSession.user_id == user_id,
+            PomodoroSession.kind == "focus",
+            PomodoroSession.completed_at >= today_start,
+        )
+    )
+    pomodoros_today = int(pomodoros_today or 0)
     # B C-2: dashboard 只展示顶层未完成任务, 避免显示子任务但父任务缺席
     recent_task_rows = await db.scalars(
         select(Task)
@@ -202,6 +220,7 @@ async def _real_summary(db: AsyncSession, user_id: str) -> DashboardSummary:
         tokens_limit=100_000,
         today_words=today_words,
         writing_streak=writing_streak,
+        pomodoros_today=pomodoros_today,
         recent_activities=recent_activities,
         recent_tasks=recent_tasks,
     )

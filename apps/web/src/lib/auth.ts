@@ -87,7 +87,7 @@ export function verifyEmail(token: string): Promise<MessageResponse> {
   return postMessage("/api/v1/auth/verify-email", { token });
 }
 
-export type ApiKeyProvider = "anthropic" | "openai" | "replicate";
+export type ApiKeyProvider = "anthropic" | "openai" | "deepseek" | "replicate";
 
 export interface ApiKeyPublic {
   id: string;

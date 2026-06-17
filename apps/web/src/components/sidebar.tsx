@@ -14,6 +14,7 @@ import {
   Search,
   Settings,
   Sparkles,
+  Target,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -37,6 +38,7 @@ const PRIMARY_ITEMS: NavItem[] = [
   { name: "工作台", href: "/dashboard", icon: Home },
   { name: "笔记", href: "/notes", icon: FileText },
   { name: "任务", href: "/tasks", icon: CheckSquare },
+  { name: "番茄钟", href: "/pomodoro", icon: Target },
   { name: "收藏", href: "/links", icon: Bookmark },
   { name: "RAG", href: "/rag", icon: ScrollText, badge: "P4" },
   { name: "评审", href: "/review", icon: Sparkles, badge: "P5" },

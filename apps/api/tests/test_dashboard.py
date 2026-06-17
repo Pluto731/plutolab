@@ -16,6 +16,7 @@ _REQUIRED_FIELDS = {
     "tokens_limit",
     "today_words",
     "writing_streak",
+    "pomodoros_today",
     "recent_activities",
     "recent_tasks",
 }
@@ -68,6 +69,7 @@ class TestAuthenticated:
         assert body["tokens_this_month"] == 0
         assert body["today_words"] == 0
         assert body["writing_streak"] == 0
+        assert body["pomodoros_today"] == 0
         assert body["recent_activities"] == []
         assert body["recent_tasks"] == []
 

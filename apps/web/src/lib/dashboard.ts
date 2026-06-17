@@ -25,6 +25,7 @@ export interface DashboardSummary {
   tokens_limit: number;
   today_words: number;
   writing_streak: number;
+  pomodoros_today: number;
   recent_activities: ActivityItem[];
   recent_tasks: RecentTaskItem[];
 }

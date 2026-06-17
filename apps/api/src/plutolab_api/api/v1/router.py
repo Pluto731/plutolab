@@ -10,6 +10,7 @@ from plutolab_api.api.v1 import (
     health,
     links,
     notes,
+    pomodoros,
     tasks,
     users,
 )
@@ -24,3 +25,4 @@ api_router.include_router(api_keys.router)
 api_router.include_router(notes.router)
 api_router.include_router(tasks.router)
 api_router.include_router(links.router)
+api_router.include_router(pomodoros.router)

@@ -7,7 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 # 当前支持的 provider 白名单 (容易扩展)
-ApiKeyProvider = Literal["anthropic", "openai", "replicate"]
+ApiKeyProvider = Literal["anthropic", "openai", "deepseek", "replicate"]
 
 
 class CreateApiKeyRequest(BaseModel):

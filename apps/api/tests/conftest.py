@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engin
 
 import plutolab_api.models.link  # noqa: F401  (register on Base.metadata)
 import plutolab_api.models.note  # noqa: F401  (register on Base.metadata)
+import plutolab_api.models.pomodoro  # noqa: F401  (register on Base.metadata)
 import plutolab_api.models.task  # noqa: F401  (register on Base.metadata)
 import plutolab_api.models.user  # (register on Base.metadata; referenced elsewhere)
 import plutolab_api.models.user_api_key  # noqa: F401  (register on Base.metadata)
