@@ -32,8 +32,8 @@ class Settings(BaseSettings):
     jwt_access_ttl_min: int = Field(default=15)
     jwt_refresh_ttl_days: int = Field(default=7)
 
-    # 头像本地存储目录 (prod 用 docker volume 挂载 /data/avatars)
-    avatar_dir: str = Field(default="/data/avatars")
+    # 头像本地存储目录 (dev 默认 ./_avatars; prod 用 docker volume 挂载 /data/avatars)
+    avatar_dir: str = Field(default="./_avatars")
     avatar_max_bytes: int = Field(default=2 * 1024 * 1024)  # 2 MB
 
     # GitHub OAuth (未配置时 /auth/github 返回 503, 前端按钮禁用)
