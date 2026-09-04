@@ -12,6 +12,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,16 +21,23 @@ from plutolab_api.api.deps import CurrentUser
 from plutolab_api.core.logging import get_logger
 from plutolab_api.db.deps import get_db
 from plutolab_api.models.note import Note
-from plutolab_api.models.rag import RAGDocument, RAGKnowledgeBase
+from plutolab_api.models.rag import RAGConversation, RAGDocument, RAGKnowledgeBase, RAGMessage
 from plutolab_api.schemas.rag import (
+    ConversationCreate,
+    ConversationPublic,
+    ConversationSummary,
+    ConversationUpdate,
     DocumentImportNoteRequest,
     DocumentPublic,
     KnowledgeBaseCreate,
     KnowledgeBasePublic,
     KnowledgeBaseSummary,
     KnowledgeBaseUpdate,
+    MessageCreate,
+    MessagePublic,
     SearchResultItem,
 )
+from plutolab_api.services.chat import RAGChatService
 from plutolab_api.services.embedder import EmbeddingService
 from plutolab_api.services.ingestion import DocumentIngestionService
 from plutolab_api.services.retriever import HybridRetriever, SearchMode
@@ -58,6 +66,16 @@ async def _get_owned_kb(db: AsyncSession, kb_id: UUID, user_id: UUID) -> RAGKnow
     if kb is None or kb.user_id != user_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Knowledge base not found")
     return kb
+
+
+async def _get_owned_conversation(
+    db: AsyncSession, conversation_id: UUID, user_id: UUID
+) -> RAGConversation:
+    """Fetch conversation and ensure it belongs to the authenticated user."""
+    conv = await db.get(RAGConversation, conversation_id)
+    if conv is None or conv.user_id != user_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    return conv
 
 
 # --- Knowledge Base CRUD Endpoints ---
@@ -455,3 +473,226 @@ async def search_knowledge_base(
         api_key=user_api_key,
     )
     return results
+
+
+# --- Conversation & Chat Endpoints (Phase 4.3.c) ---
+
+
+@router.post(
+    "/knowledge-bases/{kb_id}/conversations",
+    response_model=ConversationPublic,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_conversation(
+    kb_id: UUID,
+    user: CurrentUser,
+    db: DbSession,
+    payload: ConversationCreate | None = None,
+) -> ConversationPublic:
+    """Initiate a new RAG conversation thread under a knowledge base."""
+    await _get_owned_kb(db, kb_id, user.id)
+
+    title = payload.title.strip() if payload and payload.title else "新对话"
+    conv = RAGConversation(
+        kb_id=kb_id,
+        user_id=user.id,
+        title=title,
+    )
+    db.add(conv)
+    await db.commit()
+    await db.refresh(conv)
+
+    return ConversationPublic(
+        id=conv.id,
+        kb_id=conv.kb_id,
+        title=conv.title,
+        messages=[],
+        created_at=conv.created_at,
+        updated_at=conv.updated_at,
+    )
+
+
+@router.get(
+    "/knowledge-bases/{kb_id}/conversations",
+    response_model=list[ConversationSummary],
+)
+async def list_conversations(
+    kb_id: UUID,
+    user: CurrentUser,
+    db: DbSession,
+) -> list[ConversationSummary]:
+    """List conversation summaries under a knowledge base for navigation history."""
+    await _get_owned_kb(db, kb_id, user.id)
+
+    stmt = (
+        select(
+            RAGConversation.id,
+            RAGConversation.kb_id,
+            RAGConversation.title,
+            RAGConversation.created_at,
+            RAGConversation.updated_at,
+            func.count(RAGMessage.id).label("message_count"),
+        )
+        .outerjoin(RAGMessage, RAGMessage.conversation_id == RAGConversation.id)
+        .where(
+            RAGConversation.kb_id == kb_id,
+            RAGConversation.user_id == user.id,
+        )
+        .group_by(RAGConversation.id)
+        .order_by(RAGConversation.updated_at.desc())
+    )
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    return [
+        ConversationSummary(
+            id=row.id,
+            kb_id=row.kb_id,
+            title=row.title,
+            message_count=row.message_count,
+            created_at=row.created_at,
+            updated_at=row.updated_at,
+        )
+        for row in rows
+    ]
+
+
+@router.get(
+    "/conversations/{conversation_id}",
+    response_model=ConversationPublic,
+)
+async def get_conversation(
+    conversation_id: UUID,
+    user: CurrentUser,
+    db: DbSession,
+) -> ConversationPublic:
+    """Retrieve full conversation details along with chronological message history."""
+    conv = await _get_owned_conversation(db, conversation_id, user.id)
+
+    stmt = (
+        select(RAGMessage)
+        .where(RAGMessage.conversation_id == conversation_id)
+        .order_by(RAGMessage.created_at.asc())
+    )
+    result = await db.execute(stmt)
+    messages = list(result.scalars().all())
+
+    return ConversationPublic(
+        id=conv.id,
+        kb_id=conv.kb_id,
+        title=conv.title,
+        messages=[MessagePublic.model_validate(m) for m in messages],
+        created_at=conv.created_at,
+        updated_at=conv.updated_at,
+    )
+
+
+@router.patch(
+    "/conversations/{conversation_id}",
+    response_model=ConversationPublic,
+)
+async def update_conversation(
+    conversation_id: UUID,
+    user: CurrentUser,
+    db: DbSession,
+    payload: ConversationUpdate,
+) -> ConversationPublic:
+    """Update conversation title."""
+    conv = await _get_owned_conversation(db, conversation_id, user.id)
+    conv.title = payload.title.strip()
+    await db.commit()
+    await db.refresh(conv)
+
+    stmt = (
+        select(RAGMessage)
+        .where(RAGMessage.conversation_id == conversation_id)
+        .order_by(RAGMessage.created_at.asc())
+    )
+    result = await db.execute(stmt)
+    messages = list(result.scalars().all())
+
+    return ConversationPublic(
+        id=conv.id,
+        kb_id=conv.kb_id,
+        title=conv.title,
+        messages=[MessagePublic.model_validate(m) for m in messages],
+        created_at=conv.created_at,
+        updated_at=conv.updated_at,
+    )
+
+
+@router.delete(
+    "/conversations/{conversation_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_conversation(
+    conversation_id: UUID,
+    user: CurrentUser,
+    db: DbSession,
+) -> None:
+    """Delete conversation and cascade remove its message history."""
+    conv = await _get_owned_conversation(db, conversation_id, user.id)
+    await db.delete(conv)
+    await db.commit()
+
+
+@router.post(
+    "/conversations/{conversation_id}/messages",
+    response_model=None,
+)
+async def create_conversation_message(
+    conversation_id: UUID,
+    user: CurrentUser,
+    db: DbSession,
+    payload: MessageCreate,
+):
+    """Send a user message in a RAG conversation thread.
+
+    If payload.stream is True (default), returns a StreamingResponse with
+    media_type="text/event-stream" emitting ChatStreamChunk SSE packets.
+    If False, runs synchronously and returns MessagePublic.
+    """
+    conv = await _get_owned_conversation(db, conversation_id, user.id)
+
+    # Persist the user question message first
+    user_msg = RAGMessage(
+        conversation_id=conversation_id,
+        role="user",
+        content=payload.content,
+        citations=[],
+    )
+    db.add(user_msg)
+    await db.commit()
+    await db.refresh(user_msg)
+
+    chat_service = RAGChatService()
+
+    if payload.stream:
+        return StreamingResponse(
+            chat_service.stream_chat(
+                db=db,
+                conversation=conv,
+                user_id=user.id,
+                query=payload.content,
+                model=payload.model or "gpt-4o-mini",
+                top_k=payload.top_k,
+                hybrid_search=payload.hybrid_search,
+            ),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+    else:
+        assistant_public = await chat_service.sync_chat(
+            db=db,
+            conversation=conv,
+            user_id=user.id,
+            query=payload.content,
+            model=payload.model or "gpt-4o-mini",
+            top_k=payload.top_k,
+            hybrid_search=payload.hybrid_search,
+        )
+        return assistant_public

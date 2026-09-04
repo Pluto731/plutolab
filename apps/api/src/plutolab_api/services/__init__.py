@@ -1,5 +1,8 @@
 """Services package for PlutoLab API."""
 
+from plutolab_api.services.chat import (
+    RAGChatService,
+)
 from plutolab_api.services.doc_parser import (
     DocParseError,
     DocumentParser,
@@ -40,4 +43,5 @@ __all__ = [
     "HybridRetriever",
     "SearchMode",
     "DocumentIngestionService",
+    "RAGChatService",
 ]
