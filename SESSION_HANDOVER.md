@@ -36,9 +36,9 @@
 ## 2. 当前研发进度状态 (截至 2026-09-04)
 
 - **当前分支**：`main` (与 `origin/main` 保持最新同步)
-- **最新 Git Commit**：`65b76df` (`feat(rag): implement Fernet key decryption and EmbeddingService (phase 4.2.c)`)
+- **最新 Git Commit**：`d4118b0` (`feat(rag): implement pgvector and FTS HybridRetriever with RRF fusion (phase 4.3.a)`)
 - **自动化测试状态**：
-  - 后端 pytest 全量通过：**`267 passed, 265 warnings`** (100% 满分无回退)
+  - 后端 pytest 全量通过：**`272 passed, 1 warning`** (100% 满分无回退，PyJWT 告警已消除)
   - 前端 `pnpm typecheck`：通过 (零错误)
 - **生产数据库迁移版本**：`0012_create_rag_tables` (本地与 VPS 生产均已应用)
 
@@ -53,7 +53,8 @@
 | **Phase 4.2.a** | 多格式文档解析器 (DocParser) | ✅ 完成 | 内存流解析 MD/TXT/PDF/DOCX，commit `189154c` |
 | **Phase 4.2.b** | 递归语义分块器 (RecursiveSplitter) | ✅ 完成 | tiktoken 分词 + 512/64 滑动窗口 + 多页溯源，commit `3757df0` |
 | **Phase 4.2.c** | Fernet 解密与向量化 (Embedder) | ✅ 完成 | 1536 维 OpenAI 批量向量化 + 确定性 Mock，commit `65b76df` |
-| **Phase 4.3.a** | HNSW 向量 + 倒排混合检索 (HybridRetriever) | ⏳ **下一目标** | 结合 pgvector `<=>` 与 `to_tsvector`，RRF (k=60) 融合打分 |
+| **Phase 4.3.a** | HNSW 向量 + 倒排混合检索 (HybridRetriever) | ✅ 完成 | pgvector `<=>` + GIN `to_tsvector` + RRF (k=60) 融合打分，commit `d4118b0` |
+| **Phase 4.3.b** | 知识库管理与文件/笔记异步导入 API | ⏳ **下一目标** | 知识库 CRUD、FastAPI BackgroundTasks 异步解析切块入库 |
 
 ---
 
