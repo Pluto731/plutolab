@@ -155,6 +155,38 @@ class TestAuthenticated:
         assert body_b["notes_count"] == 0
         assert body_b["recent_activities"] == []
 
+    async def test_rag_docs_count_reflects_real_documents(
+        self, client: AsyncClient
+    ) -> None:
+        reg = await client.post(
+            REGISTER, json={"email": "rag-dash@example.com", "password": "supersecret"}
+        )
+        h = {"Authorization": f"Bearer {reg.json()['access_token']}"}
+        # 1. Initially 0
+        body = (await client.get(SUMMARY, headers=h)).json()
+        assert body["rag_docs_count"] == 0
+
+        # 2. Create KB and upload document
+        kb_resp = await client.post(
+            "/api/v1/rag/knowledge-bases", headers=h, json={"title": "Dash KB"}
+        )
+        assert kb_resp.status_code == 201
+        kb_id = kb_resp.json()["id"]
+
+        files = [
+            ("files", ("test.txt", b"RAG content for dashboard verification", "text/plain"))
+        ]
+        up_resp = await client.post(
+            f"/api/v1/rag/knowledge-bases/{kb_id}/documents/upload",
+            headers=h,
+            files=files,
+        )
+        assert up_resp.status_code == 202
+
+        # 3. Check dashboard reflects 1 RAG doc
+        body = (await client.get(SUMMARY, headers=h)).json()
+        assert body["rag_docs_count"] == 1
+
 
 class TestSchema:
     async def test_response_has_all_required_fields(self, client: AsyncClient) -> None:

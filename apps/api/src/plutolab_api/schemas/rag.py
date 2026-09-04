@@ -85,6 +85,8 @@ class KnowledgeBasePublic(BaseModel):
     icon: str
     doc_count: int = 0
     char_count: int = 0
+    chunk_count: int = 0
+    embedding_model: str = "text-embedding-3-small"
     created_at: datetime
     updated_at: datetime
 
@@ -100,6 +102,8 @@ class KnowledgeBaseSummary(BaseModel):
     icon: str
     doc_count: int = 0
     char_count: int = 0
+    chunk_count: int = 0
+    embedding_model: str = "text-embedding-3-small"
     created_at: datetime
     updated_at: datetime
 

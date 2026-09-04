@@ -44,6 +44,8 @@ class TestKnowledgeBaseCRUD:
         assert get_data["id"] == kb_id
         assert get_data["doc_count"] == 0
         assert get_data["char_count"] == 0
+        assert get_data["chunk_count"] == 0
+        assert get_data["embedding_model"] == "text-embedding-3-small"
 
     async def test_list_knowledge_bases_with_stats(self, client: AsyncClient) -> None:
         h = await _auth(client, "kb_tester_2@example.com")
@@ -158,6 +160,18 @@ class TestDocumentIngestionAndSearch:
         resp = await client.post(f"{RAG_KB}/{kb_id}/documents/upload", headers=h, files=files)
         assert resp.status_code == 400
         assert "not supported" in resp.json()["detail"]
+
+    async def test_upload_oversized_file_rejected(self, client: AsyncClient) -> None:
+        h = await _auth(client, "doc_tester_oversize@example.com")
+        kb_resp = await client.post(RAG_KB, headers=h, json={"title": "超大文件库"})
+        kb_id = kb_resp.json()["id"]
+
+        # Mock oversized file larger than 50MB (50 * 1024 * 1024 + 1)
+        oversized_content = b"x" * (50 * 1024 * 1024 + 10)
+        files = [("files", ("huge.txt", oversized_content, "text/plain"))]
+        resp = await client.post(f"{RAG_KB}/{kb_id}/documents/upload", headers=h, files=files)
+        assert resp.status_code == 413
+        assert "exceeds maximum allowed size" in resp.json()["detail"]
 
     async def test_import_notes_to_knowledge_base(self, client: AsyncClient) -> None:
         h = await _auth(client, "doc_tester_3@example.com")

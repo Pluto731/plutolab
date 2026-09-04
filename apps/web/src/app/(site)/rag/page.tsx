@@ -103,7 +103,7 @@ export default function RAGKnowledgeBasesPage() {
         <div>
           <div className="flex items-center gap-2 text-primary text-xs font-semibold uppercase tracking-wider">
             <Sparkles className="size-3.5" />
-            <span>Phase 4 · RAG 知识中枢</span>
+            <span>RAG 知识中枢</span>
           </div>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-3xl">
             智能文档知识库

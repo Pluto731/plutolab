@@ -40,7 +40,7 @@ const PRIMARY_ITEMS: NavItem[] = [
   { name: "任务", href: "/tasks", icon: CheckSquare },
   { name: "番茄钟", href: "/pomodoro", icon: Target },
   { name: "收藏", href: "/links", icon: Bookmark },
-  { name: "RAG", href: "/rag", icon: ScrollText, badge: "P4" },
+  { name: "RAG", href: "/rag", icon: ScrollText },
   { name: "评审", href: "/review", icon: Sparkles, badge: "P5" },
   { name: "Agent", href: "/agents", icon: Bot, badge: "P6" },
   { name: "画作", href: "/gallery", icon: ImageIcon, badge: "P7" },

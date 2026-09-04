@@ -48,6 +48,7 @@ router = APIRouter(prefix="/rag", tags=["rag"])
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 ALLOWED_EXTENSIONS = {"md", "txt", "pdf", "docx"}
+MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50MB
 
 
 class SearchRequest(BaseModel):
@@ -110,6 +111,8 @@ async def create_knowledge_base(
         icon=kb.icon,
         doc_count=0,
         char_count=0,
+        chunk_count=0,
+        embedding_model="text-embedding-3-small",
         created_at=kb.created_at,
         updated_at=kb.updated_at,
     )
@@ -124,12 +127,13 @@ async def list_knowledge_bases(
     db: DbSession,
 ) -> list[KnowledgeBaseSummary]:
     """List all knowledge bases belonging to the user with aggregated statistics."""
-    # Query KBs with left join aggregation for document and character counts
+    # Query KBs with left join aggregation for document, character, and chunk counts
     stmt = (
         select(
             RAGKnowledgeBase,
             func.coalesce(func.count(RAGDocument.id), 0).label("doc_count"),
             func.coalesce(func.sum(RAGDocument.char_count), 0).label("char_count"),
+            func.coalesce(func.sum(RAGDocument.chunk_count), 0).label("chunk_count"),
         )
         .outerjoin(RAGDocument, RAGKnowledgeBase.id == RAGDocument.kb_id)
         .where(RAGKnowledgeBase.user_id == user.id)
@@ -141,7 +145,7 @@ async def list_knowledge_bases(
     rows = result.all()
 
     summaries: list[KnowledgeBaseSummary] = []
-    for kb, doc_count, char_count in rows:
+    for kb, doc_count, char_count, chunk_count in rows:
         summaries.append(
             KnowledgeBaseSummary(
                 id=kb.id,
@@ -150,6 +154,8 @@ async def list_knowledge_bases(
                 icon=kb.icon,
                 doc_count=int(doc_count),
                 char_count=int(char_count),
+                chunk_count=int(chunk_count),
+                embedding_model="text-embedding-3-small",
                 created_at=kb.created_at,
                 updated_at=kb.updated_at,
             )
@@ -173,9 +179,10 @@ async def get_knowledge_base(
     stats_stmt = select(
         func.coalesce(func.count(RAGDocument.id), 0),
         func.coalesce(func.sum(RAGDocument.char_count), 0),
+        func.coalesce(func.sum(RAGDocument.chunk_count), 0),
     ).where(RAGDocument.kb_id == kb_id)
     stats_res = await db.execute(stats_stmt)
-    doc_count, char_count = stats_res.one()
+    doc_count, char_count, chunk_count = stats_res.one()
 
     return KnowledgeBasePublic(
         id=kb.id,
@@ -185,6 +192,8 @@ async def get_knowledge_base(
         icon=kb.icon,
         doc_count=int(doc_count),
         char_count=int(char_count),
+        chunk_count=int(chunk_count),
+        embedding_model="text-embedding-3-small",
         created_at=kb.created_at,
         updated_at=kb.updated_at,
     )
@@ -217,9 +226,10 @@ async def update_knowledge_base(
     stats_stmt = select(
         func.coalesce(func.count(RAGDocument.id), 0),
         func.coalesce(func.sum(RAGDocument.char_count), 0),
+        func.coalesce(func.sum(RAGDocument.chunk_count), 0),
     ).where(RAGDocument.kb_id == kb_id)
     stats_res = await db.execute(stats_stmt)
-    doc_count, char_count = stats_res.one()
+    doc_count, char_count, chunk_count = stats_res.one()
 
     return KnowledgeBasePublic(
         id=kb.id,
@@ -229,6 +239,8 @@ async def update_knowledge_base(
         icon=kb.icon,
         doc_count=int(doc_count),
         char_count=int(char_count),
+        chunk_count=int(chunk_count),
+        embedding_model="text-embedding-3-small",
         created_at=kb.created_at,
         updated_at=kb.updated_at,
     )
@@ -285,6 +297,12 @@ async def upload_documents(
 
         content = await upload_file.read()
         file_size = len(content)
+
+        if file_size > MAX_UPLOAD_SIZE:
+            raise HTTPException(
+                status.HTTP_413_CONTENT_TOO_LARGE,
+                detail=f"File '{filename}' exceeds maximum allowed size of 50MB.",
+            )
 
         doc = RAGDocument(
             kb_id=kb_id,

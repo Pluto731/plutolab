@@ -19,6 +19,7 @@ from plutolab_api.api.deps import OptionalUser
 from plutolab_api.db.deps import get_db
 from plutolab_api.models.note import Note
 from plutolab_api.models.pomodoro import PomodoroSession
+from plutolab_api.models.rag import RAGDocument
 from plutolab_api.models.task import Task
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
@@ -209,11 +210,17 @@ async def _real_summary(db: AsyncSession, user_id: str) -> DashboardSummary:
         RecentTaskItem(id=str(t.id), title=t.title) for t in recent_task_rows.all()
     ]
 
+    # RAG 文档总数: 该用户所有知识库下的文档数
+    rag_docs_count = await db.scalar(
+        select(func.count(RAGDocument.id)).where(RAGDocument.user_id == user_id)
+    )
+    rag_docs_count = int(rag_docs_count or 0)
+
     return DashboardSummary(
         is_authenticated=True,
         notes_count=notes_count,
         tasks_count=tasks_count,
-        rag_docs_count=0,
+        rag_docs_count=rag_docs_count,
         agents_count=0,
         images_count=0,
         tokens_this_month=0,

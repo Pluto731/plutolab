@@ -114,7 +114,7 @@ export default function DashboardPage() {
             iconGradient="from-blue-500 to-cyan-500"
             label="RAG 文档"
             value={data.rag_docs_count}
-            emptyHint="Phase 4 上线时启用"
+            emptyHint="暂无文档"
           />
         </motion.div>
         <motion.div {...STAGGER} transition={STAGGER_TRANSITION(5)} className="md:col-span-4">
