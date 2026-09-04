@@ -12,6 +12,10 @@ from plutolab_api.services.embedder import (
     EmbeddingService,
     generate_mock_vector,
 )
+from plutolab_api.services.retriever import (
+    HybridRetriever,
+    SearchMode,
+)
 from plutolab_api.services.text_splitter import (
     DocumentChunk,
     RecursiveSplitter,
@@ -30,4 +34,6 @@ __all__ = [
     "EmbeddingError",
     "EmbeddingService",
     "generate_mock_vector",
+    "HybridRetriever",
+    "SearchMode",
 ]

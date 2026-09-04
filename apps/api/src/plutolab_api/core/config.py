@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="redis://localhost:6379/0")
 
     # Auth / JWT. jwt_secret MUST be overridden in production via env.
-    jwt_secret: str = Field(default="dev-insecure-change-me")
+    jwt_secret: str = Field(default="dev-insecure-change-me-32-bytes-long!")
     jwt_algorithm: str = Field(default="HS256")
     jwt_access_ttl_min: int = Field(default=15)
     jwt_refresh_ttl_days: int = Field(default=7)
