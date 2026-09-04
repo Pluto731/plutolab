@@ -36,11 +36,12 @@
 ## 2. 当前研发进度状态 (截至 2026-09-04)
 
 - **当前分支**：`main` (与 `origin/main` 保持最新同步)
-- **最新 Git Commit**：`d4118b0` (`feat(rag): implement pgvector and FTS HybridRetriever with RRF fusion (phase 4.3.a)`)
+- **最新 Git Commit**：`9d0afb2` (`feat(rag): implement knowledge base CRUD and async ingestion API (phase 4.3.b)`)
 - **自动化测试状态**：
-  - 后端 pytest 全量通过：**`272 passed, 1 warning`** (100% 满分无回退，PyJWT 告警已消除)
+  - 后端 pytest 全量通过：**`281 passed, 1 warning`** (100% 满分无回退，覆盖全量 281 项用例)
   - 前端 `pnpm typecheck`：通过 (零错误)
 - **生产数据库迁移版本**：`0012_create_rag_tables` (本地与 VPS 生产均已应用)
+- **生产 VPS 状态**：`107.175.190.218` 运行正常，已上线 7 组 RAG 核心端点
 
 ### 阶段完成度速查
 
@@ -54,7 +55,8 @@
 | **Phase 4.2.b** | 递归语义分块器 (RecursiveSplitter) | ✅ 完成 | tiktoken 分词 + 512/64 滑动窗口 + 多页溯源，commit `3757df0` |
 | **Phase 4.2.c** | Fernet 解密与向量化 (Embedder) | ✅ 完成 | 1536 维 OpenAI 批量向量化 + 确定性 Mock，commit `65b76df` |
 | **Phase 4.3.a** | HNSW 向量 + 倒排混合检索 (HybridRetriever) | ✅ 完成 | pgvector `<=>` + GIN `to_tsvector` + RRF (k=60) 融合打分，commit `d4118b0` |
-| **Phase 4.3.b** | 知识库管理与文件/笔记异步导入 API | ⏳ **下一目标** | 知识库 CRUD、FastAPI BackgroundTasks 异步解析切块入库 |
+| **Phase 4.3.b** | 知识库管理与文件/笔记异步导入 API | ✅ 完成 | 知识库 CRUD、BackgroundTasks 异步切块、笔记一键导入、混合检索 API，commit `9d0afb2` |
+| **Phase 4.3.c** | 流式 SSE 问答端点与 Citation 组装 | ⏳ **下一目标** | 对话树追溯、LLM 流式回答输出、Token 计费与引用片段组装 |
 
 ---
 
