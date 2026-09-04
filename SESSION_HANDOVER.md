@@ -36,13 +36,18 @@
 ## 2. 当前研发进度状态 (截至 2026-09-04)
 
 - **当前分支**：`main` (与 `origin/main` 保持最新同步)
-- **最新 Git Commit**：`c5fcb27` (`feat(web): implement citation footnote drawer with source chunk highlight and score (phase 4.5.c)`)
+- **最新 Git Commit**：`0ab12d3` (`fix(rag): remove p4 development badges, wire dashboard rag count, and enhance security`)
 - **自动化测试状态**：
-  - 后端 pytest 全量通过：**`285 passed, 1 warning`** (100% 满分无回退，覆盖全量 285 项用例)
+  - 后端 pytest 全量通过：**`287 passed, 1 warning`** (100% 满分无回退，覆盖全量 287 项用例，含 RAG 仪表盘计数与 413 大文件拦截)
   - 前端 `pnpm typecheck`：通过 (零错误)
-  - 前端 `turbo run build`：通过 (Next.js 16 生产打包成功，包含 `/rag/[id]/chat` 对话工作台、原生 SSE 流式打字机与引用抽屉)
+  - 前端 `turbo run build`：通过 (Next.js 16 生产打包成功，20 条动静态路由全部通过编译)
 - **生产数据库迁移版本**：`0012_create_rag_tables` (本地与 VPS 生产均已应用)
-- **生产 VPS 状态**：`107.175.190.218` 运行正常，前端 `/rag` 主页、`/rag/[id]` 详情与 `/rag/[id]/chat` 对话工作台及原文溯源抽屉均已部署上线
+- **生产 VPS 状态**：`107.175.190.218` 运行正常，`plutolab-prod-web` 与 `plutolab-prod-api` 容器热更新重建完成，公网 HTTP 200 冒烟正常
+- **收尾与安全排查**：
+  - 彻底清理全局导航与界面的 `P4` / `Phase 4` 开发占位标识
+  - 仪表盘 RAG 文档卡片完全对接数据库真实用户文档计数
+  - 补充知识库 `chunk_count` 聚合与 `embedding_model` 契约，彻底消除前端数据显示缺失
+  - 增加 50MB 实体过大前置拦截防御（HTTP 413）
 
 ### 阶段完成度速查
 
@@ -66,7 +71,8 @@
 | **Phase 4.5.b** | 原生 SSE 打字机流式响应与 Markdown 渲染 | ✅ 完成 | 对接 `streamRAGMessage`，逐字打字机平滑渲染、Markdown 代码高亮与复制、中止生成，commit `3719ba8` |
 | **Phase 4.5.c** | 行内引用角标与侧边原文高亮抽屉 | ✅ 完成 | 点击 `[^1]` 或引用胶囊滑出抽屉、原文切片高亮、余弦相似度与多条翻页，commit `c5fcb27` |
 | **Phase 4.6** | 交付与 VPS 生产验收 (回归+提交+上线) | ✅ 100% | 285 项 pytest 全绿、typecheck/build 零错误、Alembic 0012 (head)、公网全流程端到端冒烟通过 |
-| **Phase 4 总体** | **RAG 智能文档问答核心系统** | 🏆 **全部竣工** | **16 个微切片 100% 交付上线，全套知识中枢生产就绪！** |
+| **Phase 4.polish** | 生产收尾与安全排查 | ✅ 完成 | 移除全站 P4 标识、仪表盘真数据接通、切片数聚合补齐、50MB 上传防护，commit `0ab12d3` |
+| **Phase 4 总体** | **RAG 智能文档问答核心系统** | 🏆 **全部竣工** | **16 个微切片 + 生产收尾 100% 交付上线，全套知识中枢生产就绪！** |
 
 ---
 
