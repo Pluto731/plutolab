@@ -6,6 +6,12 @@ from plutolab_api.services.doc_parser import (
     ParsedDocument,
     ParsedPage,
 )
+from plutolab_api.services.embedder import (
+    EMBEDDING_DIM,
+    EmbeddingError,
+    EmbeddingService,
+    generate_mock_vector,
+)
 from plutolab_api.services.text_splitter import (
     DocumentChunk,
     RecursiveSplitter,
@@ -20,4 +26,8 @@ __all__ = [
     "DocumentChunk",
     "RecursiveSplitter",
     "count_tokens",
+    "EMBEDDING_DIM",
+    "EmbeddingError",
+    "EmbeddingService",
+    "generate_mock_vector",
 ]
