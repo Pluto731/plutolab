@@ -22,7 +22,7 @@ interface ChatMessagesProps {
   streamingCitations?: CitationItem[];
   isStreaming?: boolean;
   onSendPresetQuery?: (query: string) => void;
-  onCitationClick?: (index: number) => void;
+  onOpenCitation?: (citations: CitationItem[], index: number) => void;
 }
 
 const PRESET_QUERIES = [
@@ -39,7 +39,7 @@ export function ChatMessages({
   streamingCitations = [],
   isStreaming = false,
   onSendPresetQuery,
-  onCitationClick,
+  onOpenCitation,
 }: ChatMessagesProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -139,7 +139,12 @@ export function ChatMessages({
                 ) : (
                   <MarkdownMessage
                     content={msg.content}
-                    onCitationClick={onCitationClick}
+                    onCitationClick={(num) => {
+                      if (msg.citations && msg.citations.length > 0) {
+                        const targetIdx = Math.min(Math.max(0, num - 1), msg.citations.length - 1);
+                        onOpenCitation?.(msg.citations, targetIdx);
+                      }
+                    }}
                   />
                 )}
               </div>
@@ -152,7 +157,7 @@ export function ChatMessages({
                     <button
                       key={cite.chunk_id || idx}
                       type="button"
-                      onClick={() => onCitationClick?.(idx + 1)}
+                      onClick={() => onOpenCitation?.(msg.citations, idx)}
                       title={cite.content}
                       className="inline-flex items-center gap-1 rounded-md border border-primary/20 bg-primary/5 px-2 py-0.5 text-[10px] text-primary hover:bg-primary/10 transition-colors"
                     >
@@ -185,7 +190,12 @@ export function ChatMessages({
                 <MarkdownMessage
                   content={streamingMessage}
                   isStreaming={true}
-                  onCitationClick={onCitationClick}
+                  onCitationClick={(num) => {
+                    if (streamingCitations.length > 0) {
+                      const targetIdx = Math.min(Math.max(0, num - 1), streamingCitations.length - 1);
+                      onOpenCitation?.(streamingCitations, targetIdx);
+                    }
+                  }}
                 />
               ) : (
                 <div className="flex items-center gap-2 text-xs text-zinc-400">
@@ -203,7 +213,7 @@ export function ChatMessages({
                   <button
                     key={cite.chunk_id || idx}
                     type="button"
-                    onClick={() => onCitationClick?.(idx + 1)}
+                    onClick={() => onOpenCitation?.(streamingCitations, idx)}
                     title={cite.content}
                     className="inline-flex items-center gap-1 rounded-md border border-primary/20 bg-primary/5 px-2 py-0.5 text-[10px] text-primary hover:bg-primary/10 transition-colors"
                   >

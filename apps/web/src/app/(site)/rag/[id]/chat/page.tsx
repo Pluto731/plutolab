@@ -26,6 +26,7 @@ import {
 import { ChatHeader } from "./components/chat-header";
 import { ChatInput } from "./components/chat-input";
 import { ChatMessages } from "./components/chat-messages";
+import { CitationDrawer } from "./components/citation-drawer";
 import { ConversationSidebar } from "./components/conversation-sidebar";
 
 export default function RAGChatPage() {
@@ -48,6 +49,18 @@ export default function RAGChatPage() {
   const [streamingDelta, setStreamingDelta] = useState("");
   const [streamingCitations, setStreamingCitations] = useState<CitationItem[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Citation Drawer State (Phase 4.5.c)
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerCitations, setDrawerCitations] = useState<CitationItem[]>([]);
+  const [drawerIndex, setDrawerIndex] = useState(0);
+
+  const handleOpenCitation = (citations: CitationItem[], index: number) => {
+    if (!citations || citations.length === 0) return;
+    setDrawerCitations(citations);
+    setDrawerIndex(index);
+    setDrawerOpen(true);
+  };
 
   // Authentication check
   useEffect(() => {
@@ -301,7 +314,7 @@ export default function RAGChatPage() {
       />
 
       {/* Right Column: Chat Workspace Main Area */}
-      <main className="flex flex-1 flex-col overflow-hidden min-w-0 bg-transparent">
+      <main className="flex flex-1 flex-col overflow-hidden min-w-0 bg-transparent relative">
         {/* Workspace Header */}
         <ChatHeader
           kb={kb}
@@ -318,6 +331,7 @@ export default function RAGChatPage() {
           streamingCitations={streamingCitations}
           isStreaming={isStreaming}
           onSendPresetQuery={handleSendMessage}
+          onOpenCitation={handleOpenCitation}
         />
 
         {/* Bottom Input Area */}
@@ -325,6 +339,15 @@ export default function RAGChatPage() {
           onSend={handleSendMessage}
           onStop={handleStopGenerating}
           isStreaming={isStreaming}
+        />
+
+        {/* Source Citation Drawer (Phase 4.5.c) */}
+        <CitationDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          citations={drawerCitations}
+          currentIndex={drawerIndex}
+          onNavigate={setDrawerIndex}
         />
       </main>
     </div>
