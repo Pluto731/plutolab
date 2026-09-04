@@ -18,6 +18,7 @@ import {
 
 import { DocumentTable } from "./components/document-table";
 import { DocumentUploadZone } from "./components/document-upload-zone";
+import { ImportNotesDialog } from "./components/import-notes-dialog";
 import { KBHeader } from "./components/kb-header";
 
 export default function KnowledgeBaseDetailPage() {
@@ -161,25 +162,18 @@ export default function KnowledgeBaseDetailPage() {
         onOpenImportModal={() => setImportModalOpen(true)}
       />
 
-      {/* Placeholder note import prompt modal for 4.4.d */}
-      {importModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-950">
-            <div className="flex items-center gap-2 text-primary font-semibold text-sm">
-              <BookOpen className="size-4" />
-              <span>导入 Markdown 笔记</span>
-            </div>
-            <p className="mt-3 text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
-              笔记多选导入模态框将在下一微切片 (Phase 4.4.d) 中完整实现。您可以先通过上方的拖拽上传区域上传本地 Markdown (.md)、文本 (.txt)、PDF (.pdf) 或 Word (.docx) 文档。
-            </p>
-            <div className="mt-5 flex justify-end">
-              <Button size="sm" onClick={() => setImportModalOpen(false)}>
-                知道了
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Import Notes Dialog (Phase 4.4.d) */}
+      <ImportNotesDialog
+        open={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        kbId={kbId}
+        existingDocuments={documents}
+        onImportSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["kb-documents", kbId] });
+          queryClient.invalidateQueries({ queryKey: ["kb", kbId] });
+          queryClient.invalidateQueries({ queryKey: ["knowledge-bases"] });
+        }}
+      />
     </div>
   );
 }
