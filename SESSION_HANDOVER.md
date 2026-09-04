@@ -36,13 +36,13 @@
 ## 2. 当前研发进度状态 (截至 2026-09-04)
 
 - **当前分支**：`main` (与 `origin/main` 保持最新同步)
-- **最新 Git Commit**：`9e2e317` (`feat(web): implement note import multi-select modal for RAG knowledge base (phase 4.4.d)`)
+- **最新 Git Commit**：`d8f80d8` (`feat(web): implement double-column chat workspace and conversation tree (phase 4.5.a)`)
 - **自动化测试状态**：
   - 后端 pytest 全量通过：**`285 passed, 1 warning`** (100% 满分无回退，覆盖全量 285 项用例)
   - 前端 `pnpm typecheck`：通过 (零错误)
-  - 前端 `turbo run build`：通过 (Next.js 16 生产打包成功，包含 `/rag/[id]` 知识库工作台与笔记导入模态框)
+  - 前端 `turbo run build`：通过 (Next.js 16 生产打包成功，包含 `/rag/[id]/chat` 对话工作台)
 - **生产数据库迁移版本**：`0012_create_rag_tables` (本地与 VPS 生产均已应用)
-- **生产 VPS 状态**：`107.175.190.218` 运行正常，前端 `/rag` 网格主页与 `/rag/[id]` 详情工作台及笔记导入均已部署上线
+- **生产 VPS 状态**：`107.175.190.218` 运行正常，前端 `/rag` 主页、`/rag/[id]` 详情与 `/rag/[id]/chat` 对话工作台均已部署上线
 
 ### 阶段完成度速查
 
@@ -62,7 +62,8 @@
 | **Phase 4.4.b** | 知识库主页与卡片网格 UI | ✅ 完成 | 替换 ComingSoon，毛玻璃网格卡片、新建弹窗、统计指标条与全局搜索，commit `551f500` |
 | **Phase 4.4.c** | 文档拖拽上传与解析状态实时表格 | ✅ 完成 | 详情页 `/rag/[id]`、HTML5 拖拽上传、格式/体积拦截、自适应 2000ms 轮询状态表格与删除，commit `1bec643` |
 | **Phase 4.4.d** | 现有笔记一键导入多选模态框 | ✅ 完成 | 检索 Phase 3.1 笔记、动态标签筛选、去重置灰防呆、批量提交切块向量化入库，commit `9e2e317` |
-| **Phase 4.5.a** | 对话工作区双栏布局与会话历史树 | ⏳ **下一目标** | 详情页进入 `/rag/[id]/chat`，左侧历史会话树（新建/重命名/删除会话），右侧对话主视窗 |
+| **Phase 4.5.a** | 对话工作区双栏布局与会话历史树 | ✅ 完成 | 知识库问答页面 `/rag/[id]/chat`、左侧会话历史侧边栏（新建/重命名/删除）、右侧主视窗骨架，commit `d8f80d8` |
+| **Phase 4.5.b** | 原生 SSE 打字机流式响应与 Markdown 渲染 | ⏳ **下一目标** | 对接 `streamRAGMessage`，逐字打字机平滑渲染、Markdown 代码高亮与自动滚动 |
 
 ---
 
