@@ -36,13 +36,13 @@
 ## 2. 当前研发进度状态 (截至 2026-09-04)
 
 - **当前分支**：`main` (与 `origin/main` 保持最新同步)
-- **最新 Git Commit**：`3719ba8` (`feat(web): implement native SSE typewriter streaming and markdown message rendering (phase 4.5.b)`)
+- **最新 Git Commit**：`c5fcb27` (`feat(web): implement citation footnote drawer with source chunk highlight and score (phase 4.5.c)`)
 - **自动化测试状态**：
   - 后端 pytest 全量通过：**`285 passed, 1 warning`** (100% 满分无回退，覆盖全量 285 项用例)
   - 前端 `pnpm typecheck`：通过 (零错误)
-  - 前端 `turbo run build`：通过 (Next.js 16 生产打包成功，包含 `/rag/[id]/chat` 对话工作台与原生 SSE 流式打字机)
+  - 前端 `turbo run build`：通过 (Next.js 16 生产打包成功，包含 `/rag/[id]/chat` 对话工作台、原生 SSE 流式打字机与引用抽屉)
 - **生产数据库迁移版本**：`0012_create_rag_tables` (本地与 VPS 生产均已应用)
-- **生产 VPS 状态**：`107.175.190.218` 运行正常，前端 `/rag` 主页、`/rag/[id]` 详情与 `/rag/[id]/chat` 对话工作台均已部署上线
+- **生产 VPS 状态**：`107.175.190.218` 运行正常，前端 `/rag` 主页、`/rag/[id]` 详情与 `/rag/[id]/chat` 对话工作台及原文溯源抽屉均已部署上线
 
 ### 阶段完成度速查
 
@@ -64,7 +64,8 @@
 | **Phase 4.4.d** | 现有笔记一键导入多选模态框 | ✅ 完成 | 检索 Phase 3.1 笔记、动态标签筛选、去重置灰防呆、批量提交切块向量化入库，commit `9e2e317` |
 | **Phase 4.5.a** | 对话工作区双栏布局与会话历史树 | ✅ 完成 | 知识库问答页面 `/rag/[id]/chat`、左侧会话历史侧边栏（新建/重命名/删除）、右侧主视窗骨架，commit `d8f80d8` |
 | **Phase 4.5.b** | 原生 SSE 打字机流式响应与 Markdown 渲染 | ✅ 完成 | 对接 `streamRAGMessage`，逐字打字机平滑渲染、Markdown 代码高亮与复制、中止生成，commit `3719ba8` |
-| **Phase 4.5.c** | 行内引用角标与侧边原文高亮抽屉 | ⏳ **下一目标** | 点击 `[^1]` 或引用胶囊弹出右侧抽屉，高亮展示召回原文切片片段、相似度与元数据 |
+| **Phase 4.5.c** | 行内引用角标与侧边原文高亮抽屉 | ✅ 完成 | 点击 `[^1]` 或引用胶囊滑出抽屉、原文切片高亮、余弦相似度与多条翻页，commit `c5fcb27` |
+| **Phase 4.6.a** | 本地全量回归测试与端到端质检 | ⏳ **下一目标** | 执行 pytest 全量与类型检查，验证全站日常套件与 RAG 深度融合无破坏性改动 |
 
 ---
 
