@@ -11,14 +11,18 @@ import {
 } from "lucide-react";
 import React, { useEffect, useRef } from "react";
 
-import type { ConversationPublic, KnowledgeBasePublic, MessagePublic } from "@/lib/rag";
+import type { CitationItem, ConversationPublic, KnowledgeBasePublic, MessagePublic } from "@/lib/rag";
+import { MarkdownMessage } from "./markdown-message";
 
 interface ChatMessagesProps {
   kb: KnowledgeBasePublic;
   conversation: ConversationPublic | null;
   isLoading: boolean;
-  streamingDelta?: string;
+  streamingMessage?: string | null;
+  streamingCitations?: CitationItem[];
+  isStreaming?: boolean;
   onSendPresetQuery?: (query: string) => void;
+  onCitationClick?: (index: number) => void;
 }
 
 const PRESET_QUERIES = [
@@ -31,14 +35,19 @@ export function ChatMessages({
   kb,
   conversation,
   isLoading,
-  streamingDelta,
+  streamingMessage,
+  streamingCitations = [],
+  isStreaming = false,
   onSendPresetQuery,
+  onCitationClick,
 }: ChatMessagesProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll on content updates
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [conversation?.messages, streamingDelta]);
+  }, [conversation?.messages, streamingMessage, streamingCitations]);
 
   if (isLoading && !conversation) {
     return (
@@ -51,7 +60,7 @@ export function ChatMessages({
 
   const messages = conversation?.messages || [];
 
-  if (messages.length === 0 && !streamingDelta) {
+  if (messages.length === 0 && !streamingMessage && !isStreaming) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
         <div className="max-w-md space-y-4">
@@ -94,7 +103,7 @@ export function ChatMessages({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+    <div ref={containerRef} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
       {messages.map((msg: MessagePublic) => {
         const isUser = msg.role === "user";
 
@@ -125,22 +134,32 @@ export function ChatMessages({
                     : "bg-white/80 border border-zinc-200/80 text-zinc-800 dark:bg-zinc-900/80 dark:border-white/[0.08] dark:text-zinc-200 rounded-tl-xs shadow-xs"
                 }`}
               >
-                <div className="whitespace-pre-wrap break-words">{msg.content}</div>
+                {isUser ? (
+                  <div className="whitespace-pre-wrap break-words">{msg.content}</div>
+                ) : (
+                  <MarkdownMessage
+                    content={msg.content}
+                    onCitationClick={onCitationClick}
+                  />
+                )}
               </div>
 
-              {/* Citations Preview (if any) */}
+              {/* Citations Preview */}
               {!isUser && msg.citations && msg.citations.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 pt-1">
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[10px] text-zinc-400">参考来源:</span>
                   {msg.citations.map((cite, idx) => (
-                    <span
+                    <button
                       key={cite.chunk_id || idx}
+                      type="button"
+                      onClick={() => onCitationClick?.(idx + 1)}
                       title={cite.content}
-                      className="inline-flex items-center gap-1 rounded-md border border-primary/20 bg-primary/5 px-2 py-0.5 text-[10px] text-primary cursor-pointer hover:bg-primary/10 transition-colors"
+                      className="inline-flex items-center gap-1 rounded-md border border-primary/20 bg-primary/5 px-2 py-0.5 text-[10px] text-primary hover:bg-primary/10 transition-colors"
                     >
                       <FileText className="size-2.5" />
-                      <span className="truncate max-w-[140px]">{cite.filename}</span>
+                      <span className="truncate max-w-[130px]">{cite.filename}</span>
                       <span className="font-mono">#{cite.chunk_index}</span>
-                    </span>
+                    </button>
                   ))}
                 </div>
               )}
@@ -149,8 +168,8 @@ export function ChatMessages({
         );
       })}
 
-      {/* Streaming Delta Bubble (if active in 4.5.b) */}
-      {streamingDelta && (
+      {/* Streaming Assistant Bubble */}
+      {isStreaming && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -159,8 +178,42 @@ export function ChatMessages({
           <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-700 ring-1 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:ring-white/[0.1]">
             <Bot className="size-4 text-primary" />
           </div>
-          <div className="rounded-2xl rounded-tl-xs border border-zinc-200/80 bg-white/80 px-4 py-3 text-xs sm:text-sm leading-relaxed text-zinc-800 shadow-xs dark:border-white/[0.08] dark:bg-zinc-900/80 dark:text-zinc-200 min-w-0 max-w-[85%]">
-            <div className="whitespace-pre-wrap break-words">{streamingDelta}</div>
+
+          <div className="space-y-2 min-w-0 max-w-[85%]">
+            <div className="rounded-2xl rounded-tl-xs border border-zinc-200/80 bg-white/80 px-4 py-3 text-xs sm:text-sm leading-relaxed text-zinc-800 shadow-xs dark:border-white/[0.08] dark:bg-zinc-900/80 dark:text-zinc-200">
+              {streamingMessage ? (
+                <MarkdownMessage
+                  content={streamingMessage}
+                  isStreaming={true}
+                  onCitationClick={onCitationClick}
+                />
+              ) : (
+                <div className="flex items-center gap-2 text-xs text-zinc-400">
+                  <Loader2 className="size-3.5 animate-spin text-primary" />
+                  <span>正在多路检索知识库切片并组织回答...</span>
+                </div>
+              )}
+            </div>
+
+            {/* Streaming Citations */}
+            {streamingCitations.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <span className="text-[10px] text-zinc-400">检索召回:</span>
+                {streamingCitations.map((cite, idx) => (
+                  <button
+                    key={cite.chunk_id || idx}
+                    type="button"
+                    onClick={() => onCitationClick?.(idx + 1)}
+                    title={cite.content}
+                    className="inline-flex items-center gap-1 rounded-md border border-primary/20 bg-primary/5 px-2 py-0.5 text-[10px] text-primary hover:bg-primary/10 transition-colors"
+                  >
+                    <FileText className="size-2.5" />
+                    <span className="truncate max-w-[130px]">{cite.filename}</span>
+                    <span className="font-mono">#{cite.chunk_index}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </motion.div>
       )}

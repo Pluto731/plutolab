@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import { useAuthUser } from "@/components/auth/use-auth";
 import { Button } from "@/components/ui/button";
@@ -14,11 +14,13 @@ import {
   getConversation,
   getKnowledgeBase,
   listConversations,
-  sendSyncMessage,
+  streamRAGMessage,
   updateConversation,
+  type CitationItem,
   type ConversationPublic,
   type ConversationSummary,
   type KnowledgeBasePublic,
+  type MessagePublic,
 } from "@/lib/rag";
 
 import { ChatHeader } from "./components/chat-header";
@@ -40,7 +42,12 @@ export default function RAGChatPage() {
     queryConversationId
   );
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [isSending, setIsSending] = useState(false);
+
+  // Streaming State
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingDelta, setStreamingDelta] = useState("");
+  const [streamingCitations, setStreamingCitations] = useState<CitationItem[]>([]);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Authentication check
   useEffect(() => {
@@ -48,6 +55,15 @@ export default function RAGChatPage() {
       router.replace("/login");
     }
   }, [mounted, authLoading, user, router]);
+
+  // Cleanup active stream on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   // Query Knowledge Base info
   const {
@@ -65,7 +81,6 @@ export default function RAGChatPage() {
   // Query Conversations List
   const {
     data: conversations = [],
-    isLoading: convsLoading,
   } = useQuery<ConversationSummary[]>({
     queryKey: ["kb-conversations", kbId],
     queryFn: () => listConversations(kbId),
@@ -94,6 +109,9 @@ export default function RAGChatPage() {
 
   // Select conversation & sync URL query
   const handleSelectConversation = (id: string) => {
+    if (isStreaming) {
+      handleStopGenerating();
+    }
     setActiveConversationId(id);
     const url = new URL(window.location.href);
     url.searchParams.set("c", id);
@@ -135,8 +153,23 @@ export default function RAGChatPage() {
     },
   });
 
-  // Send message mutation (synchronous fallback for 4.5.a, streaming will be added in 4.5.b)
+  // Stop Generation Handler
+  const handleStopGenerating = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsStreaming(false);
+    if (activeConversationId) {
+      queryClient.invalidateQueries({ queryKey: ["conversation", activeConversationId] });
+      queryClient.invalidateQueries({ queryKey: ["kb-conversations", kbId] });
+    }
+  };
+
+  // Send message via SSE Streaming (Phase 4.5.b)
   const handleSendMessage = async (content: string) => {
+    if (isStreaming) return;
+
     let convId = activeConversationId;
 
     // If no conversation exists yet, automatically create one first
@@ -150,15 +183,68 @@ export default function RAGChatPage() {
       }
     }
 
+    // 1. Optimistically append user message to active conversation cache
+    const tempUserMessage: MessagePublic = {
+      id: `temp-${Date.now()}`,
+      conversation_id: convId,
+      role: "user",
+      content,
+      citations: [],
+      created_at: new Date().toISOString(),
+    };
+
+    queryClient.setQueryData<ConversationPublic>(
+      ["conversation", convId],
+      (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          messages: [...old.messages, tempUserMessage],
+        };
+      }
+    );
+
+    // 2. Setup streaming state
+    setIsStreaming(true);
+    setStreamingDelta("");
+    setStreamingCitations([]);
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    // 3. Initiate SSE Streaming Request
     try {
-      setIsSending(true);
-      await sendSyncMessage(convId, { content });
-      queryClient.invalidateQueries({ queryKey: ["conversation", convId] });
-      queryClient.invalidateQueries({ queryKey: ["kb-conversations", kbId] });
-    } catch (err) {
-      console.error("Failed to send message", err);
+      await streamRAGMessage(
+        convId,
+        { content, stream: true },
+        {
+          onCitation: (citation) => {
+            setStreamingCitations((prev) => [...prev, citation]);
+          },
+          onDelta: (delta) => {
+            setStreamingDelta((prev) => prev + delta);
+          },
+          onDone: () => {
+            setIsStreaming(false);
+            setStreamingDelta("");
+            setStreamingCitations([]);
+            // Invalidate queries to fetch DB persisted messages and citations
+            queryClient.invalidateQueries({ queryKey: ["conversation", convId] });
+            queryClient.invalidateQueries({ queryKey: ["kb-conversations", kbId] });
+          },
+          onError: (err) => {
+            console.error("Streaming error", err);
+            setIsStreaming(false);
+            queryClient.invalidateQueries({ queryKey: ["conversation", convId] });
+          },
+        },
+        controller.signal
+      );
+    } catch (err: any) {
+      if (err?.name !== "AbortError") {
+        console.error("Stream catch", err);
+      }
     } finally {
-      setIsSending(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -228,13 +314,17 @@ export default function RAGChatPage() {
           kb={kb}
           conversation={activeConversation || null}
           isLoading={activeConvLoading}
+          streamingMessage={streamingDelta}
+          streamingCitations={streamingCitations}
+          isStreaming={isStreaming}
           onSendPresetQuery={handleSendMessage}
         />
 
         {/* Bottom Input Area */}
         <ChatInput
           onSend={handleSendMessage}
-          isLoading={isSending}
+          onStop={handleStopGenerating}
+          isStreaming={isStreaming}
         />
       </main>
     </div>

@@ -1,21 +1,23 @@
 "use client";
 
-import { ArrowUp, Loader2 } from "lucide-react";
+import { ArrowUp, Square } from "lucide-react";
 import React, { useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
+  onStop?: () => void;
   disabled?: boolean;
-  isLoading?: boolean;
+  isStreaming?: boolean;
   placeholder?: string;
 }
 
 export function ChatInput({
   onSend,
+  onStop,
   disabled = false,
-  isLoading = false,
+  isStreaming = false,
   placeholder = "向该知识库提问任何问题...",
 }: ChatInputProps) {
   const [content, setContent] = useState("");
@@ -23,8 +25,12 @@ export function ChatInput({
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
+    if (isStreaming) {
+      onStop?.();
+      return;
+    }
     const trimmed = content.trim();
-    if (!trimmed || disabled || isLoading) return;
+    if (!trimmed || disabled) return;
     onSend(trimmed);
     setContent("");
     if (textareaRef.current) {
@@ -41,7 +47,7 @@ export function ChatInput({
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setContent(e.target.value);
-    // Auto-resize
+    // Auto-resize up to 160px
     e.target.style.height = "auto";
     e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
   };
@@ -56,28 +62,36 @@ export function ChatInput({
             value={content}
             onChange={handleInput}
             onKeyDown={handleKeyDown}
-            disabled={disabled || isLoading}
-            placeholder={placeholder}
-            className="w-full resize-none bg-transparent px-3 py-1.5 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none dark:text-zinc-100 disabled:opacity-50"
+            disabled={disabled || isStreaming}
+            placeholder={isStreaming ? "AI 正在回答中，可点击右侧按钮随时停止生成..." : placeholder}
+            className="w-full resize-none bg-transparent px-3 py-1.5 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none dark:text-zinc-100 disabled:opacity-60"
           />
 
-          <Button
-            type="submit"
-            size="icon"
-            disabled={!content.trim() || disabled || isLoading}
-            className="size-8 shrink-0 rounded-xl"
-          >
-            {isLoading ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
+          {isStreaming ? (
+            <Button
+              type="button"
+              size="icon"
+              onClick={onStop}
+              className="size-8 shrink-0 rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground shadow-xs"
+              title="停止生成"
+            >
+              <Square className="size-3.5 fill-current" />
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              size="icon"
+              disabled={!content.trim() || disabled}
+              className="size-8 shrink-0 rounded-xl"
+            >
               <ArrowUp className="size-4" strokeWidth={2.5} />
-            )}
-          </Button>
+            </Button>
+          )}
         </div>
 
         <div className="mt-2 flex items-center justify-between px-1 text-[11px] text-zinc-400">
           <span>按 <kbd className="rounded border border-zinc-200 bg-zinc-100 px-1 py-0.5 text-[10px] dark:border-zinc-700 dark:bg-zinc-800">Enter</kbd> 发送，<kbd className="rounded border border-zinc-200 bg-zinc-100 px-1 py-0.5 text-[10px] dark:border-zinc-700 dark:bg-zinc-800">Shift + Enter</kbd> 换行</span>
-          <span className="hidden sm:inline">多路召回融合 · 溯源角标</span>
+          <span className="hidden sm:inline">流式打字机 · 原生 SSE · 混合检索</span>
         </div>
       </form>
     </div>
