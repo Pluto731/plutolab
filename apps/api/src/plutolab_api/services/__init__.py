@@ -12,6 +12,9 @@ from plutolab_api.services.embedder import (
     EmbeddingService,
     generate_mock_vector,
 )
+from plutolab_api.services.ingestion import (
+    DocumentIngestionService,
+)
 from plutolab_api.services.retriever import (
     HybridRetriever,
     SearchMode,
@@ -36,4 +39,5 @@ __all__ = [
     "generate_mock_vector",
     "HybridRetriever",
     "SearchMode",
+    "DocumentIngestionService",
 ]
