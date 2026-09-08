@@ -1,16 +1,16 @@
-"use client";
+'use client'
 
-import { ArrowUp, Square } from "lucide-react";
-import React, { useRef, useState } from "react";
+import { ArrowUp, Square } from 'lucide-react'
+import React, { useRef, useState } from 'react'
 
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button'
 
 interface ChatInputProps {
-  onSend: (message: string) => void;
-  onStop?: () => void;
-  disabled?: boolean;
-  isStreaming?: boolean;
-  placeholder?: string;
+  onSend: (message: string) => void
+  onStop?: () => void
+  disabled?: boolean
+  isStreaming?: boolean
+  placeholder?: string
 }
 
 export function ChatInput({
@@ -18,44 +18,44 @@ export function ChatInput({
   onStop,
   disabled = false,
   isStreaming = false,
-  placeholder = "向该知识库提问任何问题...",
+  placeholder = '向该知识库提问任何问题...',
 }: ChatInputProps) {
-  const [content, setContent] = useState("");
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [content, setContent] = useState('')
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const handleSubmit = (e?: React.FormEvent) => {
-    e?.preventDefault();
+    e?.preventDefault()
     if (isStreaming) {
-      onStop?.();
-      return;
+      onStop?.()
+      return
     }
-    const trimmed = content.trim();
-    if (!trimmed || disabled) return;
-    onSend(trimmed);
-    setContent("");
+    const trimmed = content.trim()
+    if (!trimmed || disabled) return
+    onSend(trimmed)
+    setContent('')
     if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = 'auto'
     }
-  };
+  }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSubmit()
     }
-  };
+  }
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
+    setContent(e.target.value)
     // Auto-resize up to 160px
-    e.target.style.height = "auto";
-    e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
-  };
+    e.target.style.height = 'auto'
+    e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`
+  }
 
   return (
-    <div className="border-t border-zinc-200/80 bg-white/70 p-4 backdrop-blur-xl dark:border-white/[0.08] dark:bg-zinc-900/60">
+    <div className="border-t border-border/80 bg-background/80 p-4 backdrop-blur-xl">
       <form onSubmit={handleSubmit} className="mx-auto max-w-3xl">
-        <div className="relative flex items-end gap-2 rounded-2xl border border-zinc-200/90 bg-white p-2 shadow-sm transition-all focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 dark:border-white/[0.1] dark:bg-zinc-950">
+        <div className="relative flex items-end gap-2 rounded-2xl border border-input bg-card p-2 shadow-sm transition-all focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
           <textarea
             ref={textareaRef}
             rows={1}
@@ -63,8 +63,8 @@ export function ChatInput({
             onChange={handleInput}
             onKeyDown={handleKeyDown}
             disabled={disabled || isStreaming}
-            placeholder={isStreaming ? "AI 正在回答中，可点击右侧按钮随时停止生成..." : placeholder}
-            className="w-full resize-none bg-transparent px-3 py-1.5 text-xs sm:text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none dark:text-zinc-100 disabled:opacity-60"
+            placeholder={isStreaming ? 'AI 正在回答中，可点击右侧按钮随时停止生成...' : placeholder}
+            className="w-full resize-none bg-transparent px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-60 sm:text-sm"
           />
 
           {isStreaming ? (
@@ -89,11 +89,21 @@ export function ChatInput({
           )}
         </div>
 
-        <div className="mt-2 flex items-center justify-between px-1 text-[11px] text-zinc-400">
-          <span>按 <kbd className="rounded border border-zinc-200 bg-zinc-100 px-1 py-0.5 text-[10px] dark:border-zinc-700 dark:bg-zinc-800">Enter</kbd> 发送，<kbd className="rounded border border-zinc-200 bg-zinc-100 px-1 py-0.5 text-[10px] dark:border-zinc-700 dark:bg-zinc-800">Shift + Enter</kbd> 换行</span>
+        <div className="mt-2 flex items-center justify-between px-1 text-[11px] text-muted-foreground">
+          <span>
+            按{' '}
+            <kbd className="rounded border border-border bg-muted px-1 py-0.5 text-[10px]">
+              Enter
+            </kbd>{' '}
+            发送，
+            <kbd className="rounded border border-border bg-muted px-1 py-0.5 text-[10px]">
+              Shift + Enter
+            </kbd>{' '}
+            换行
+          </span>
           <span className="hidden sm:inline">流式打字机 · 原生 SSE · 混合检索</span>
         </div>
       </form>
     </div>
-  );
+  )
 }

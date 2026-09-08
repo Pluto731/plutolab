@@ -8,17 +8,16 @@ Orchestrates:
 5. Bulk chunk persistence into PostgreSQL + pgvector
 """
 
-from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, select
-from sqlalchemy.ext.asyncio import AsyncSession
 import structlog
+from sqlalchemy import delete
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from plutolab_api.db.session import AsyncSessionLocal
 from plutolab_api.models.rag import RAGChunk, RAGDocument
 from plutolab_api.services.doc_parser import DocParseError, DocumentParser
-from plutolab_api.services.embedder import EmbeddingError, EmbeddingService
+from plutolab_api.services.embedder import EmbeddingService
 from plutolab_api.services.text_splitter import RecursiveSplitter
 
 logger = structlog.get_logger(__name__)
@@ -31,9 +30,11 @@ class DocumentIngestionService:
         self,
         embedder: EmbeddingService | None = None,
         splitter: RecursiveSplitter | None = None,
+        session_factory: async_sessionmaker[AsyncSession] = AsyncSessionLocal,
     ) -> None:
         self.embedder = embedder or EmbeddingService()
         self.splitter = splitter or RecursiveSplitter()
+        self.session_factory = session_factory
 
     async def process_document(
         self,
@@ -71,7 +72,7 @@ class DocumentIngestionService:
             )
 
         # In production background task: manage autonomous session
-        async with AsyncSessionLocal() as autonomous_session:
+        async with self.session_factory() as autonomous_session:
             return await self._execute_pipeline(
                 session=autonomous_session,
                 doc_id=doc_id,

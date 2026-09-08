@@ -11,7 +11,15 @@ Includes:
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    UploadFile,
+    status,
+)
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
@@ -49,6 +57,11 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 ALLOWED_EXTENSIONS = {"md", "txt", "pdf", "docx"}
 MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50MB
+
+
+def get_ingestion_service() -> DocumentIngestionService:
+    """Build an ingestion worker with its own background-task session factory."""
+    return DocumentIngestionService()
 
 
 class SearchRequest(BaseModel):
@@ -274,7 +287,10 @@ async def upload_documents(
     user: CurrentUser,
     db: DbSession,
     background_tasks: BackgroundTasks,
-    files: list[UploadFile] = File(...),
+    ingestion_service: Annotated[
+        DocumentIngestionService, Depends(get_ingestion_service)
+    ],
+    files: list[UploadFile] = File(...),  # noqa: B008
 ) -> list[DocumentPublic]:
     """Upload one or more documents (md, txt, pdf, docx) and trigger background ingestion."""
     await _get_owned_kb(db, kb_id, user.id)
@@ -283,8 +299,6 @@ async def upload_documents(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="No files provided")
 
     created_docs: list[DocumentPublic] = []
-    ingestion_service = DocumentIngestionService()
-
     for upload_file in files:
         filename = upload_file.filename or "untitled.txt"
         ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "txt"
@@ -325,7 +339,6 @@ async def upload_documents(
             file_type=ext,
             kb_id=kb_id,
             user_id=user.id,
-            session=db,
         )
 
         created_docs.append(DocumentPublic.model_validate(doc))
@@ -344,6 +357,9 @@ async def import_notes_to_knowledge_base(
     user: CurrentUser,
     db: DbSession,
     background_tasks: BackgroundTasks,
+    ingestion_service: Annotated[
+        DocumentIngestionService, Depends(get_ingestion_service)
+    ],
     payload: DocumentImportNoteRequest,
 ) -> list[DocumentPublic]:
     """Import existing Phase 3.1 user notes into this knowledge base."""
@@ -360,8 +376,6 @@ async def import_notes_to_knowledge_base(
         )
 
     created_docs: list[DocumentPublic] = []
-    ingestion_service = DocumentIngestionService()
-
     for note in notes:
         content_bytes = note.content.encode("utf-8")
         filename = f"{note.title}.md"
@@ -387,7 +401,6 @@ async def import_notes_to_knowledge_base(
             file_type="note",
             kb_id=kb_id,
             user_id=user.id,
-            session=db,
         )
 
         created_docs.append(DocumentPublic.model_validate(doc))

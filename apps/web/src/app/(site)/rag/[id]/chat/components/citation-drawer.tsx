@@ -1,6 +1,6 @@
-"use client";
+'use client'
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   Check,
   ChevronLeft,
@@ -11,27 +11,27 @@ import {
   Layers,
   Sparkles,
   X,
-} from "lucide-react";
-import React, { useEffect, useState } from "react";
+} from 'lucide-react'
+import React, { useEffect, useState } from 'react'
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import type { CitationItem } from "@/lib/rag";
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import type { CitationItem } from '@/lib/rag'
 
 interface CitationDrawerProps {
-  open: boolean;
-  onClose: () => void;
-  citations: CitationItem[];
-  currentIndex: number;
-  onNavigate: (index: number) => void;
+  open: boolean
+  onClose: () => void
+  citations: CitationItem[]
+  currentIndex: number
+  onNavigate: (index: number) => void
 }
 
 function getFileIcon(filename: string) {
-  const ext = filename.split(".").pop()?.toLowerCase();
-  if (ext === "md") return <FileCode className="size-4 text-purple-500" />;
-  if (ext === "pdf") return <FileText className="size-4 text-red-500" />;
-  if (ext === "docx") return <FileText className="size-4 text-blue-500" />;
-  return <FileText className="size-4 text-zinc-500" />;
+  const ext = filename.split('.').pop()?.toLowerCase()
+  if (ext === 'md') return <FileCode className="size-4 text-purple-500" />
+  if (ext === 'pdf') return <FileText className="size-4 text-red-500" />
+  if (ext === 'docx') return <FileText className="size-4 text-blue-500" />
+  return <FileText className="size-4 text-zinc-500" />
 }
 
 export function CitationDrawer({
@@ -41,47 +41,45 @@ export function CitationDrawer({
   currentIndex,
   onNavigate,
 }: CitationDrawerProps) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState(false)
 
   // Keyboard navigation: Esc to close, ArrowLeft/Right to navigate
   useEffect(() => {
-    if (!open) return;
+    if (!open) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      } else if (e.key === "ArrowLeft") {
+      if (e.key === 'Escape') {
+        onClose()
+      } else if (e.key === 'ArrowLeft') {
         if (currentIndex > 0) {
-          onNavigate(currentIndex - 1);
+          onNavigate(currentIndex - 1)
         }
-      } else if (e.key === "ArrowRight") {
+      } else if (e.key === 'ArrowRight') {
         if (currentIndex < citations.length - 1) {
-          onNavigate(currentIndex + 1);
+          onNavigate(currentIndex + 1)
         }
       }
-    };
+    }
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, currentIndex, citations.length, onClose, onNavigate]);
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [open, currentIndex, citations.length, onClose, onNavigate])
 
-  const currentItem: CitationItem | undefined = citations[currentIndex];
+  const currentItem: CitationItem | undefined = citations[currentIndex]
 
   const handleCopyContent = async () => {
-    if (!currentItem) return;
+    if (!currentItem) return
     try {
-      await navigator.clipboard.writeText(currentItem.content);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(currentItem.content)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
     } catch (err) {
-      console.error("Failed to copy citation text", err);
+      console.error('Failed to copy citation text', err)
     }
-  };
+  }
 
-  const hasMultiple = citations.length > 1;
-  const matchPercentage = currentItem?.similarity
-    ? (currentItem.similarity * 100).toFixed(1)
-    : null;
+  const hasMultiple = citations.length > 1
+  const matchPercentage = currentItem?.similarity ? (currentItem.similarity * 100).toFixed(1) : null
 
   return (
     <AnimatePresence>
@@ -98,36 +96,32 @@ export function CitationDrawer({
 
           {/* Drawer Panel */}
           <motion.div
-            initial={{ x: "100%" }}
+            initial={{ x: '100%' }}
             animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 28, stiffness: 280 }}
-            className="relative flex w-full max-w-md sm:max-w-lg flex-col bg-white shadow-2xl dark:bg-zinc-950 border-l border-zinc-200/80 dark:border-white/[0.1] z-10"
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+            className="relative z-10 flex h-full w-full max-w-md flex-col border-l border-border bg-background shadow-2xl sm:max-w-lg"
           >
             {/* Drawer Header */}
-            <div className="flex items-center justify-between border-b border-zinc-200/80 bg-zinc-50/70 px-5 py-3.5 backdrop-blur-md dark:border-white/[0.08] dark:bg-zinc-900/50">
+            <div className="flex items-center justify-between border-b border-border bg-muted/40 px-5 py-3.5 backdrop-blur-md">
               <div className="flex items-center gap-2">
                 <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Sparkles className="size-3.5" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-sm text-zinc-900 dark:text-zinc-100">
-                    原文切片溯源
-                  </h3>
-                  <p className="text-[11px] text-zinc-400">
-                    检索增强召回切片与余弦相似度
-                  </p>
+                  <h3 className="text-sm font-semibold text-foreground">原文切片溯源</h3>
+                  <p className="text-[11px] text-muted-foreground">检索增强召回切片与余弦相似度</p>
                 </div>
               </div>
 
               {/* Navigation & Close */}
               <div className="flex items-center gap-1.5">
                 {hasMultiple && (
-                  <div className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-1.5 py-0.5 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+                  <div className="flex items-center gap-1 rounded-lg border border-border bg-background px-1.5 py-0.5 text-xs text-muted-foreground">
                     <button
                       onClick={() => onNavigate(Math.max(0, currentIndex - 1))}
                       disabled={currentIndex === 0}
-                      className="rounded p-0.5 hover:bg-zinc-100 disabled:opacity-30 dark:hover:bg-zinc-800"
+                      className="rounded p-0.5 hover:bg-muted disabled:opacity-30"
                       title="上一个切片 (←)"
                     >
                       <ChevronLeft className="size-3.5" />
@@ -138,7 +132,7 @@ export function CitationDrawer({
                     <button
                       onClick={() => onNavigate(Math.min(citations.length - 1, currentIndex + 1))}
                       disabled={currentIndex === citations.length - 1}
-                      className="rounded p-0.5 hover:bg-zinc-100 disabled:opacity-30 dark:hover:bg-zinc-800"
+                      className="rounded p-0.5 hover:bg-muted disabled:opacity-30"
                       title="下一个切片 (→)"
                     >
                       <ChevronRight className="size-3.5" />
@@ -150,7 +144,7 @@ export function CitationDrawer({
                   variant="ghost"
                   size="icon"
                   onClick={onClose}
-                  className="size-7 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                  className="size-7 text-muted-foreground hover:text-foreground"
                 >
                   <X className="size-4" />
                 </Button>
@@ -160,16 +154,19 @@ export function CitationDrawer({
             {/* Drawer Body */}
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
               {/* Document Meta Card */}
-              <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/50 p-3.5 dark:border-white/[0.08] dark:bg-zinc-900/40 space-y-2.5">
+              <div className="space-y-2.5 rounded-xl border border-border bg-muted/30 p-3.5">
                 <div className="flex items-start gap-2.5">
                   <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-white shadow-xs dark:bg-zinc-800">
                     {getFileIcon(currentItem.filename)}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-xs text-zinc-900 dark:text-zinc-100 truncate" title={currentItem.filename}>
+                    <p
+                      className="truncate text-xs font-semibold text-foreground"
+                      title={currentItem.filename}
+                    >
                       {currentItem.filename}
                     </p>
-                    <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-muted-foreground">
                       <span className="inline-flex items-center gap-1">
                         <Layers className="size-3 text-zinc-400" />
                         <span>分块 #{currentItem.chunk_index}</span>
@@ -191,8 +188,11 @@ export function CitationDrawer({
                 {/* Match Score Badge */}
                 {matchPercentage && (
                   <div className="flex items-center justify-between pt-1 border-t border-zinc-200/60 dark:border-white/[0.05]">
-                    <span className="text-[11px] text-zinc-400">向量召回余弦评分:</span>
-                    <Badge variant="secondary" className="font-mono text-[11px] bg-primary/10 text-primary border-primary/20">
+                    <span className="text-[11px] text-muted-foreground">向量召回余弦评分:</span>
+                    <Badge
+                      variant="secondary"
+                      className="font-mono text-[11px] bg-primary/10 text-primary border-primary/20"
+                    >
                       <Sparkles className="size-2.5 mr-1" />
                       {matchPercentage}% 匹配度
                     </Badge>
@@ -203,14 +203,12 @@ export function CitationDrawer({
               {/* Raw Content Section */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                    切片原文内容
-                  </span>
+                  <span className="text-xs font-semibold text-foreground">切片原文内容</span>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleCopyContent}
-                    className="h-7 text-xs px-2 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+                    className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
                   >
                     {copied ? (
                       <>
@@ -227,13 +225,13 @@ export function CitationDrawer({
                 </div>
 
                 {/* Content Box */}
-                <div className="rounded-xl border border-zinc-200/90 bg-white p-4 text-xs sm:text-sm leading-relaxed text-zinc-800 shadow-xs dark:border-white/[0.08] dark:bg-zinc-900/60 dark:text-zinc-200 max-h-[460px] overflow-y-auto whitespace-pre-wrap font-sans">
+                <div className="max-h-[460px] overflow-y-auto whitespace-pre-wrap rounded-xl border border-border bg-card p-4 font-sans text-xs leading-relaxed text-foreground shadow-xs sm:text-sm">
                   {currentItem.content}
                 </div>
               </div>
 
               {/* Technical identifiers */}
-              <div className="rounded-lg bg-zinc-100/60 p-2.5 text-[10px] text-zinc-400 dark:bg-zinc-900/30 space-y-1 font-mono">
+              <div className="space-y-1 rounded-lg bg-muted/60 p-2.5 font-mono text-[10px] text-muted-foreground">
                 <div className="truncate">Chunk ID: {currentItem.chunk_id}</div>
                 <div className="truncate">Doc ID: {currentItem.document_id}</div>
               </div>
@@ -249,5 +247,5 @@ export function CitationDrawer({
         </div>
       )}
     </AnimatePresence>
-  );
+  )
 }
