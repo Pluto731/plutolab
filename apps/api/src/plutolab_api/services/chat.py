@@ -10,21 +10,31 @@ Orchestrates:
 """
 
 import asyncio
-from collections.abc import AsyncIterator
 import json
-from typing import Any
+from collections.abc import AsyncIterator
 from uuid import UUID
 
 import httpx
+import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
 from plutolab_api.core.crypto import decrypt
 from plutolab_api.models.rag import RAGConversation, RAGMessage
 from plutolab_api.models.user_api_key import UserApiKey
-from plutolab_api.schemas.rag import ChatStreamChunk, CitationItem, MessagePublic, SearchResultItem
+from plutolab_api.schemas.rag import (
+    ChatStreamChunk,
+    CitationItem,
+    MessagePublic,
+    SearchResultItem,
+)
 from plutolab_api.services.embedder import EmbeddingService
+from plutolab_api.services.query_router import (
+    QueryPlan,
+    build_query_plan,
+    retrieval_confidence,
+    should_reflect,
+)
 from plutolab_api.services.retriever import HybridRetriever, SearchMode
 
 logger = structlog.get_logger(__name__)
@@ -70,7 +80,9 @@ class RAGChatService:
             try:
                 return decrypt(key_record.encrypted_key)
             except Exception as e:
-                logger.warning("rag_chat.key_decrypt_failed", user_id=str(user_id), error=str(e))
+                logger.warning(
+                    "rag_chat.key_decrypt_failed", user_id=str(user_id), error=str(e)
+                )
         return None
 
     def _build_context_and_citations(
@@ -94,12 +106,18 @@ class RAGChatService:
             )
             citations.append(citation)
 
-            page_info = f" (第 {citation.metadata.get('page_number')} 页)" if citation.metadata.get("page_number") else ""
+            page_info = (
+                f" (第 {citation.metadata.get('page_number')} 页)"
+                if citation.metadata.get("page_number")
+                else ""
+            )
             context_parts.append(
                 f"[{idx}] 来源: 《{res.filename}》{page_info}\n{res.content.strip()}"
             )
 
-        context_text = "\n\n".join(context_parts) if context_parts else "（未检索到相关文档切片）"
+        context_text = (
+            "\n\n".join(context_parts) if context_parts else "（未检索到相关文档切片）"
+        )
         return context_text, citations
 
     async def _get_chat_history(
@@ -121,6 +139,67 @@ class RAGChatService:
             if msg.role in {"user", "assistant"}:
                 formatted.append({"role": msg.role, "content": msg.content})
         return formatted
+
+    async def _retrieve_with_reflection(
+        self,
+        db: AsyncSession,
+        conversation: RAGConversation,
+        query: str,
+        history: list[dict[str, str]],
+        top_k: int,
+        search_mode: SearchMode,
+        api_key: str | None,
+    ) -> tuple[list[SearchResultItem], QueryPlan]:
+        """Run one query rewrite plus at most one bounded low-confidence retry."""
+        plan = build_query_plan(query, history)
+        results = await self._retriever.search(
+            db=db,
+            kb_id=conversation.kb_id,
+            query=plan.semantic_query,
+            top_k=top_k,
+            mode=search_mode,
+            api_key=api_key,
+            vector_query=plan.semantic_query,
+            fts_query=plan.keyword_query,
+        )
+        confidence = retrieval_confidence(results, plan.semantic_query)
+        retry_performed = False
+
+        if (
+            should_reflect(results, plan.semantic_query)
+            and plan.keyword_query
+            and plan.keyword_query != plan.semantic_query
+        ):
+            retry_performed = True
+            retry_results = await self._retriever.search(
+                db=db,
+                kb_id=conversation.kb_id,
+                query=plan.keyword_query,
+                top_k=top_k,
+                mode=search_mode,
+                api_key=api_key,
+                vector_query=plan.keyword_query,
+                fts_query=plan.keyword_query,
+            )
+            merged_results = {result.chunk_id: result for result in results}
+            for result in retry_results:
+                current = merged_results.get(result.chunk_id)
+                if current is None or result.score > current.score:
+                    merged_results[result.chunk_id] = result
+            results = sorted(
+                merged_results.values(), key=lambda result: result.score, reverse=True
+            )[:top_k]
+
+        logger.info(
+            "agentic_retrieval_completed",
+            kb_id=str(conversation.kb_id),
+            confidence=confidence,
+            retry_performed=retry_performed,
+            semantic_query=plan.semantic_query,
+            keyword_query=plan.keyword_query,
+            result_count=len(results),
+        )
+        return results, plan
 
     async def _stream_mock_response(
         self, query: str, citations: list[CitationItem]
@@ -178,7 +257,9 @@ class RAGChatService:
         close_client = self._http_client is None
 
         try:
-            async with client.stream("POST", url, json=payload, headers=headers) as resp:
+            async with client.stream(
+                "POST", url, json=payload, headers=headers
+            ) as resp:
                 resp.raise_for_status()
                 async for line in resp.aiter_lines():
                     line = line.strip()
@@ -211,16 +292,18 @@ class RAGChatService:
         hybrid_search: bool = True,
     ) -> AsyncIterator[str]:
         """Execute RAG retrieval and stream SSE events with citations and token deltas."""
-        # 1. Retrieve knowledge chunks
+        # 1. Build conversation context and retrieve knowledge chunks
         search_mode: SearchMode = "hybrid" if hybrid_search else "vector"
         user_openai_key = await self._embedder.get_user_openai_key(db, user_id)
-        results = await self._retriever.search(
+        history = await self._get_chat_history(db, conversation.id, max_messages=6)
+        results, _query_plan = await self._retrieve_with_reflection(
             db=db,
-            kb_id=conversation.kb_id,
+            conversation=conversation,
             query=query,
+            history=history,
             top_k=top_k,
-            mode=search_mode,
             api_key=user_openai_key,
+            search_mode=search_mode,
         )
 
         # 2. Build citations & prompt context
@@ -233,9 +316,12 @@ class RAGChatService:
 
         # 4. Prepare conversation prompt
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(context_text=context_text)
-        history = await self._get_chat_history(db, conversation.id, max_messages=6)
         # Exclude the latest user message from history if already inserted
-        if history and history[-1]["role"] == "user" and history[-1]["content"] == query:
+        if (
+            history
+            and history[-1]["role"] == "user"
+            and history[-1]["content"] == query
+        ):
             history = history[:-1]
 
         llm_messages = [{"role": "system", "content": system_prompt}]
@@ -263,7 +349,9 @@ class RAGChatService:
                     messages=llm_messages,
                 )
             except Exception as e:
-                logger.warning("rag_chat.remote_stream_failed_fallback_to_mock", error=str(e))
+                logger.warning(
+                    "rag_chat.remote_stream_failed_fallback_to_mock", error=str(e)
+                )
                 token_stream = self._stream_mock_response(query, citations)
         else:
             token_stream = self._stream_mock_response(query, citations)
@@ -315,20 +403,22 @@ class RAGChatService:
         hybrid_search: bool = True,
     ) -> MessagePublic:
         """Execute non-streaming RAG chat and return the persisted MessagePublic."""
-        # 1. Retrieve knowledge chunks
+        # 1. Build conversation context and retrieve knowledge chunks
         search_mode: SearchMode = "hybrid" if hybrid_search else "vector"
         user_openai_key = await self._embedder.get_user_openai_key(db, user_id)
-        results = await self._retriever.search(
+        history = await self._get_chat_history(db, conversation.id, max_messages=6)
+        results, _query_plan = await self._retrieve_with_reflection(
             db=db,
-            kb_id=conversation.kb_id,
+            conversation=conversation,
             query=query,
+            history=history,
             top_k=top_k,
-            mode=search_mode,
             api_key=user_openai_key,
+            search_mode=search_mode,
         )
 
         # 2. Build citations & prompt
-        context_text, citations = self._build_context_and_citations(results)
+        _context_text, citations = self._build_context_and_citations(results)
 
         # 3. Simulate or generate full response
         response_parts = []

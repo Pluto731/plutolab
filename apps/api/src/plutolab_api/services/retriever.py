@@ -39,6 +39,8 @@ class HybridRetriever:
         fts_weight: float = 1.0,
         rrf_k: int = 60,
         api_key: str | None = None,
+        vector_query: str | None = None,
+        fts_query: str | None = None,
     ) -> list[SearchResultItem]:
         """Perform hybrid or single-mode retrieval within a knowledge base.
 
@@ -59,13 +61,15 @@ class HybridRetriever:
         clean_query = query.strip()
         if not clean_query:
             return []
+        clean_vector_query = (vector_query or clean_query).strip()
+        clean_fts_query = (fts_query or clean_query).strip()
 
         # 1. Pure Vector Mode
         if mode == "vector":
             vector_results = await self._vector_search(
                 db=db,
                 kb_id=kb_id,
-                query=clean_query,
+                query=clean_vector_query,
                 limit=top_k,
                 api_key=api_key,
             )
@@ -84,7 +88,7 @@ class HybridRetriever:
             fts_results = await self._fts_search(
                 db=db,
                 kb_id=kb_id,
-                query=clean_query,
+                query=clean_fts_query,
                 limit=top_k,
             )
             return [
@@ -103,7 +107,7 @@ class HybridRetriever:
         vector_results = await self._vector_search(
             db=db,
             kb_id=kb_id,
-            query=clean_query,
+            query=clean_vector_query,
             limit=candidate_limit,
             api_key=api_key,
         )
@@ -111,7 +115,7 @@ class HybridRetriever:
         fts_results = await self._fts_search(
             db=db,
             kb_id=kb_id,
-            query=clean_query,
+            query=clean_fts_query,
             limit=candidate_limit,
         )
 
@@ -242,7 +246,9 @@ class HybridRetriever:
             return []
 
         # 3. Sort by aggregated RRF score descending
-        sorted_ids = sorted(rrf_scores.keys(), key=lambda cid: rrf_scores[cid], reverse=True)
+        sorted_ids = sorted(
+            rrf_scores.keys(), key=lambda cid: rrf_scores[cid], reverse=True
+        )
 
         final_items: list[SearchResultItem] = []
         for cid in sorted_ids[:top_k]:
