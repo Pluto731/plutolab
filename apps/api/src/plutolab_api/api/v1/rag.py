@@ -46,7 +46,7 @@ from plutolab_api.schemas.rag import (
     SearchResultItem,
 )
 from plutolab_api.services.chat import RAGChatService
-from plutolab_api.services.embedder import EmbeddingService
+from plutolab_api.services.embedder import EmbeddingError, EmbeddingService
 from plutolab_api.services.ingestion import DocumentIngestionService
 from plutolab_api.services.retriever import HybridRetriever, SearchMode
 
@@ -287,9 +287,7 @@ async def upload_documents(
     user: CurrentUser,
     db: DbSession,
     background_tasks: BackgroundTasks,
-    ingestion_service: Annotated[
-        DocumentIngestionService, Depends(get_ingestion_service)
-    ],
+    ingestion_service: Annotated[DocumentIngestionService, Depends(get_ingestion_service)],
     files: list[UploadFile] = File(...),  # noqa: B008
 ) -> list[DocumentPublic]:
     """Upload one or more documents (md, txt, pdf, docx) and trigger background ingestion."""
@@ -309,7 +307,7 @@ async def upload_documents(
                 detail=f"File format '.{ext}' not supported. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}",
             )
 
-        content = await upload_file.read()
+        content = await upload_file.read(MAX_UPLOAD_SIZE + 1)
         file_size = len(content)
 
         if file_size > MAX_UPLOAD_SIZE:
@@ -357,9 +355,7 @@ async def import_notes_to_knowledge_base(
     user: CurrentUser,
     db: DbSession,
     background_tasks: BackgroundTasks,
-    ingestion_service: Annotated[
-        DocumentIngestionService, Depends(get_ingestion_service)
-    ],
+    ingestion_service: Annotated[DocumentIngestionService, Depends(get_ingestion_service)],
     payload: DocumentImportNoteRequest,
 ) -> list[DocumentPublic]:
     """Import existing Phase 3.1 user notes into this knowledge base."""
@@ -490,19 +486,22 @@ async def search_knowledge_base(
 
     # Optional: fetch user's decrypted OpenAI Key
     embedder = EmbeddingService()
-    user_api_key = await embedder.get_user_openai_key(db, user.id)
-
-    retriever = HybridRetriever(embedder=embedder)
-    results = await retriever.search(
-        db=db,
-        kb_id=kb_id,
-        query=payload.query,
-        top_k=payload.top_k,
-        mode=payload.mode,
-        vector_weight=payload.vector_weight,
-        fts_weight=payload.fts_weight,
-        api_key=user_api_key,
-    )
+    try:
+        user_api_key = await embedder.get_user_openai_key(db, user.id)
+        retriever = HybridRetriever(embedder=embedder)
+        results = await retriever.search(
+            db=db,
+            kb_id=kb_id,
+            query=payload.query,
+            top_k=payload.top_k,
+            mode=payload.mode,
+            vector_weight=payload.vector_weight,
+            fts_weight=payload.fts_weight,
+            api_key=user_api_key,
+        )
+    except EmbeddingError as exc:
+        logger.warning("rag_search_embedding_failed", kb_id=str(kb_id))
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
     return results
 
 

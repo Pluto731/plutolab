@@ -1,61 +1,61 @@
-"use client";
+'use client'
 
-import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, Sparkles, X } from "lucide-react";
-import React, { useState } from "react";
+import { AnimatePresence, motion } from 'framer-motion'
+import { Loader2, Sparkles, X } from 'lucide-react'
+import React, { useState } from 'react'
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import type { KnowledgeBaseCreate } from "@/lib/rag";
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import type { KnowledgeBaseCreate } from '@/lib/rag'
 
 interface CreateKnowledgeBaseDialogProps {
-  open: boolean;
-  onClose: () => void;
-  onSubmit: (payload: KnowledgeBaseCreate) => Promise<void>;
+  open: boolean
+  onClose: () => void
+  onSubmit: (payload: KnowledgeBaseCreate) => Promise<void>
 }
 
-const PRESET_ICONS = ["📚", "🧠", "🪐", "⚡️", "🔬", "💻", "🎯", "🚀", "📊", "💡"];
+const PRESET_ICONS = ['📚', '🧠', '🪐', '⚡️', '🔬', '💻', '🎯', '🚀', '📊', '💡']
 
 export function CreateKnowledgeBaseDialog({
   open,
   onClose,
   onSubmit,
 }: CreateKnowledgeBaseDialogProps) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [icon, setIcon] = useState("📚");
-  const [embeddingModel, setEmbeddingModel] = useState("text-embedding-3-small");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [icon, setIcon] = useState('📚')
+  const [embeddingModel, setEmbeddingModel] = useState('text-embedding-3-small')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
     if (!title.trim()) {
-      setError("知识库名称不能为空");
-      return;
+      setError('知识库名称不能为空')
+      return
     }
 
     try {
-      setLoading(true);
-      setError("");
+      setLoading(true)
+      setError('')
       await onSubmit({
         title: title.trim(),
         description: description.trim() || null,
         icon,
         embedding_model: embeddingModel,
-      });
+      })
       // Reset form
-      setTitle("");
-      setDescription("");
-      setIcon("📚");
-      onClose();
-    } catch (err: any) {
-      setError(err?.message || "创建知识库失败，请重试");
+      setTitle('')
+      setDescription('')
+      setIcon('📚')
+      onClose()
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '创建知识库失败，请重试')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   return (
     <AnimatePresence>
@@ -75,7 +75,7 @@ export function CreateKnowledgeBaseDialog({
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            transition={{ type: "spring", duration: 0.25 }}
+            transition={{ type: 'spring', duration: 0.25 }}
             className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-zinc-200/80 bg-white/90 p-6 shadow-2xl backdrop-blur-2xl dark:border-white/[0.1] dark:bg-zinc-950/90"
           >
             {/* Header */}
@@ -109,7 +109,10 @@ export function CreateKnowledgeBaseDialog({
             <form onSubmit={handleSubmit} className="mt-5 space-y-4">
               {/* Title */}
               <div className="space-y-1.5">
-                <Label htmlFor="kb-title" className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                <Label
+                  htmlFor="kb-title"
+                  className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                >
                   知识库名称 <span className="text-destructive">*</span>
                 </Label>
                 <Input
@@ -136,8 +139,8 @@ export function CreateKnowledgeBaseDialog({
                       onClick={() => setIcon(emoji)}
                       className={`flex size-8 items-center justify-center rounded-lg text-base transition-transform hover:scale-110 ${
                         icon === emoji
-                          ? "bg-primary/20 ring-2 ring-primary"
-                          : "bg-zinc-100/80 hover:bg-zinc-200/80 dark:bg-zinc-800/80 dark:hover:bg-zinc-700/80"
+                          ? 'bg-primary/20 ring-2 ring-primary'
+                          : 'bg-zinc-100/80 hover:bg-zinc-200/80 dark:bg-zinc-800/80 dark:hover:bg-zinc-700/80'
                       }`}
                     >
                       {emoji}
@@ -148,7 +151,10 @@ export function CreateKnowledgeBaseDialog({
 
               {/* Description */}
               <div className="space-y-1.5">
-                <Label htmlFor="kb-desc" className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                <Label
+                  htmlFor="kb-desc"
+                  className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                >
                   知识库描述（可选）
                 </Label>
                 <textarea
@@ -164,7 +170,10 @@ export function CreateKnowledgeBaseDialog({
 
               {/* Model */}
               <div className="space-y-1.5">
-                <Label htmlFor="kb-model" className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                <Label
+                  htmlFor="kb-model"
+                  className="text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                >
                   向量嵌入模型
                 </Label>
                 <Input
@@ -174,7 +183,8 @@ export function CreateKnowledgeBaseDialog({
                   className="h-9 font-mono text-xs text-zinc-500 dark:text-zinc-400"
                 />
                 <p className="text-[11px] text-zinc-400">
-                  默认采用 OpenAI text-embedding-3-small（1536维高质量向量，兼顾性能与高检索召回率）。
+                  默认采用 OpenAI
+                  text-embedding-3-small（1536维高质量向量，兼顾性能与高检索召回率）。
                 </p>
               </div>
 
@@ -199,5 +209,5 @@ export function CreateKnowledgeBaseDialog({
         </div>
       )}
     </AnimatePresence>
-  );
+  )
 }

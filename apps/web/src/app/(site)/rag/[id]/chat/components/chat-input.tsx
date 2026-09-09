@@ -39,7 +39,7 @@ export function ChatInput({
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) {
       e.preventDefault()
       handleSubmit()
     }
@@ -59,6 +59,7 @@ export function ChatInput({
           <textarea
             ref={textareaRef}
             rows={1}
+            aria-label="向知识库提问"
             value={content}
             onChange={handleInput}
             onKeyDown={handleKeyDown}
@@ -74,12 +75,14 @@ export function ChatInput({
               onClick={onStop}
               className="size-8 shrink-0 rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground shadow-xs"
               title="停止生成"
+              aria-label="停止生成"
             >
               <Square className="size-3.5 fill-current" />
             </Button>
           ) : (
             <Button
               type="submit"
+              aria-label="发送问题"
               size="icon"
               disabled={!content.trim() || disabled}
               className="size-8 shrink-0 rounded-xl"
@@ -101,7 +104,7 @@ export function ChatInput({
             </kbd>{' '}
             换行
           </span>
-          <span className="hidden sm:inline">流式打字机 · 原生 SSE · 混合检索</span>
+          <span className="hidden sm:inline">回答仅供参考，请核对引用原文</span>
         </div>
       </form>
     </div>

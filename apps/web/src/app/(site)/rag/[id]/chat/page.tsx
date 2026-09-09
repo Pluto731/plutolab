@@ -8,6 +8,7 @@ import React, { useEffect, useRef, useState } from 'react'
 
 import { useAuthUser } from '@/components/auth/use-auth'
 import { Button } from '@/components/ui/button'
+import { ErrorNotice } from '@/components/ui/error-notice'
 import {
   createConversation,
   deleteConversation,
@@ -31,9 +32,9 @@ import { ConversationSidebar } from './components/conversation-sidebar'
 
 export default function RAGChatPage() {
   const router = useRouter()
-  const params = useParams()
+  const params = useParams<{ id: string }>()
   const searchParams = useSearchParams()
-  const kbId = (params?.id as string) || ''
+  const kbId = params.id
   const queryConversationId = searchParams.get('c')
 
   const queryClient = useQueryClient()
@@ -51,6 +52,7 @@ export default function RAGChatPage() {
   const [streamError, setStreamError] = useState<string | null>(null)
   const [retryContent, setRetryContent] = useState<string | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const sendPendingRef = useRef(false)
 
   // Citation Drawer State (Phase 4.5.c)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -104,7 +106,7 @@ export default function RAGChatPage() {
   // Automatically select the most recent conversation if none is selected
   useEffect(() => {
     if (conversations.length > 0) {
-      if (!activeConversationId || !conversations.some((c) => c.id === activeConversationId)) {
+      if (!activeConversationId) {
         setActiveConversationId(conversations[0].id)
       }
     }
@@ -122,6 +124,11 @@ export default function RAGChatPage() {
     if (isStreaming) {
       handleStopGenerating()
     }
+    setStreamingDelta('')
+    setStreamingCitations([])
+    setStreamError(null)
+    setRetryContent(null)
+    setDrawerOpen(false)
     setActiveConversationId(id)
     const url = new URL(window.location.href)
     url.searchParams.set('c', id)
@@ -132,6 +139,11 @@ export default function RAGChatPage() {
   const createMutation = useMutation({
     mutationFn: () => createConversation(kbId, { title: '新会话' }),
     onSuccess: (newConv) => {
+      queryClient.setQueryData(['conversation', newConv.id], newConv)
+      queryClient.setQueryData<ConversationSummary[]>(['kb-conversations', kbId], (old = []) => [
+        { ...newConv, message_count: newConv.messages.length },
+        ...old.filter((conversation) => conversation.id !== newConv.id),
+      ])
       queryClient.invalidateQueries({ queryKey: ['kb-conversations', kbId] })
       handleSelectConversation(newConv.id)
     },
@@ -150,13 +162,18 @@ export default function RAGChatPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteConversation(id),
     onSuccess: (_, deletedId) => {
+      const remaining = conversations.filter((c) => c.id !== deletedId)
+      queryClient.setQueryData(['kb-conversations', kbId], remaining)
       queryClient.invalidateQueries({ queryKey: ['kb-conversations', kbId] })
       if (activeConversationId === deletedId) {
-        const remaining = conversations.filter((c) => c.id !== deletedId)
+        handleStopGenerating()
         if (remaining.length > 0) {
           handleSelectConversation(remaining[0].id)
         } else {
           setActiveConversationId(null)
+          const url = new URL(window.location.href)
+          url.searchParams.delete('c')
+          window.history.replaceState({}, '', url.toString())
         }
       }
     },
@@ -177,7 +194,8 @@ export default function RAGChatPage() {
 
   // Send message via SSE Streaming (Phase 4.5.b)
   const handleSendMessage = async (content: string, optimistic = true) => {
-    if (isStreaming) return
+    if (sendPendingRef.current || abortControllerRef.current) return
+    sendPendingRef.current = true
 
     let convId = activeConversationId
 
@@ -187,7 +205,9 @@ export default function RAGChatPage() {
         const created = await createMutation.mutateAsync()
         convId = created.id
       } catch (err) {
-        console.error('Failed to auto-create conversation', err)
+        setStreamError(err instanceof Error ? err.message : '创建会话失败，请重试')
+        setRetryContent(content)
+        sendPendingRef.current = false
         return
       }
     }
@@ -218,6 +238,10 @@ export default function RAGChatPage() {
     setStreamingCitations([])
     const controller = new AbortController()
     abortControllerRef.current = controller
+    sendPendingRef.current = false
+    let accumulated = ''
+    let frame: number | null = null
+    const isCurrent = () => abortControllerRef.current === controller && !controller.signal.aborted
 
     // 3. Initiate SSE Streaming Request
     try {
@@ -226,39 +250,41 @@ export default function RAGChatPage() {
         { content, stream: true },
         {
           onCitation: (citation) => {
-            setStreamingCitations((prev) => [...prev, citation])
+            if (isCurrent()) setStreamingCitations((prev) => [...prev, citation])
           },
           onDelta: (delta) => {
-            setStreamingDelta((prev) => prev + delta)
-          },
-          onDone: () => {
-            setIsStreaming(false)
-            setStreamingDelta('')
-            setStreamingCitations([])
-            setRetryContent(null)
-            // Invalidate queries to fetch DB persisted messages and citations
-            queryClient.invalidateQueries({ queryKey: ['conversation', convId] })
-            queryClient.invalidateQueries({ queryKey: ['kb-conversations', kbId] })
-          },
-          onError: (err) => {
-            console.error('Streaming error', err)
-            setIsStreaming(false)
-            setStreamError(err.message || '回答生成失败，请稍后重试')
-            setRetryContent(content)
-            queryClient.invalidateQueries({ queryKey: ['conversation', convId] })
+            accumulated += delta
+            if (frame === null)
+              frame = requestAnimationFrame(() => {
+                frame = null
+                if (isCurrent()) setStreamingDelta(accumulated)
+              })
           },
         },
         controller.signal,
       )
+      if (isCurrent()) {
+        // Keep the final bubble visible until the persisted conversation is available.
+        setStreamingDelta(accumulated)
+        const persisted = await getConversation(convId)
+        if (isCurrent()) {
+          queryClient.setQueryData(['conversation', convId], persisted)
+          setStreamingDelta('')
+          setStreamingCitations([])
+          void queryClient.invalidateQueries({ queryKey: ['kb-conversations', kbId] })
+        }
+      }
     } catch (err: unknown) {
-      if (!(err instanceof DOMException && err.name === 'AbortError')) {
-        console.error('Stream catch', err)
-        setIsStreaming(false)
+      if (isCurrent()) {
         setStreamError(err instanceof Error ? err.message : '回答生成失败，请稍后重试')
         setRetryContent(content)
       }
     } finally {
-      abortControllerRef.current = null
+      if (frame !== null) cancelAnimationFrame(frame)
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null
+        setIsStreaming(false)
+      }
     }
   }
 
@@ -266,7 +292,7 @@ export default function RAGChatPage() {
     return (
       <div className="flex h-[80vh] flex-col items-center justify-center gap-3">
         <Loader2 className="size-8 animate-spin text-primary" />
-        <p className="text-xs text-zinc-400">正在载入知识库对话工作台...</p>
+        <p className="text-xs text-muted-foreground">正在载入知识库对话工作台...</p>
       </div>
     )
   }
@@ -276,7 +302,7 @@ export default function RAGChatPage() {
       <div className="mx-auto max-w-xl px-4 py-20 text-center">
         <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-8">
           <h3 className="text-base font-semibold text-destructive">知识库未找到</h3>
-          <p className="mt-2 text-xs text-zinc-500">
+          <p className="mt-2 text-xs text-muted-foreground">
             {kbErrorObj instanceof Error ? kbErrorObj.message : '知识库不存在或无访问权限'}
           </p>
           <div className="mt-5">
@@ -293,22 +319,18 @@ export default function RAGChatPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] md:h-[100dvh] overflow-hidden bg-zinc-50/50 dark:bg-zinc-950/50">
+    <div className="flex h-[calc(100dvh-3.5rem)] md:h-[100dvh] overflow-hidden bg-background">
       {/* Left Double-Column: Conversation Tree Sidebar */}
       <ConversationSidebar
         kb={kb}
         conversations={conversations}
         selectedId={activeConversationId}
         onSelect={handleSelectConversation}
-        onCreate={async () => {
-          await createMutation.mutateAsync()
-        }}
+        onCreate={() => createMutation.mutate()}
         onRename={async (id, title) => {
           await renameMutation.mutateAsync({ id, title })
         }}
-        onDelete={async (id) => {
-          await deleteMutation.mutateAsync(id)
-        }}
+        onDelete={(id) => deleteMutation.mutate(id)}
         isCreating={createMutation.isPending}
         isOpenMobile={mobileSidebarOpen}
         onCloseMobile={() => setMobileSidebarOpen(false)}
@@ -322,6 +344,14 @@ export default function RAGChatPage() {
           conversation={activeConversation}
           onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
         />
+        {(createMutation.error || renameMutation.error || deleteMutation.error) && (
+          <ErrorNotice
+            message={
+              (createMutation.error || renameMutation.error || deleteMutation.error)?.message ??
+              '操作失败，请重试'
+            }
+          />
+        )}
 
         {/* Message Stream Viewport */}
         <ChatMessages
@@ -339,6 +369,7 @@ export default function RAGChatPage() {
 
         {/* Bottom Input Area */}
         <ChatInput
+          disabled={createMutation.isPending || activeConvLoading}
           onSend={handleSendMessage}
           onStop={handleStopGenerating}
           isStreaming={isStreaming}

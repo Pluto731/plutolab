@@ -15,11 +15,11 @@ from collections.abc import AsyncIterator
 from uuid import UUID
 
 import httpx
-import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from plutolab_api.core.crypto import decrypt
+from plutolab_api.core.logging import get_logger
 from plutolab_api.models.rag import RAGConversation, RAGMessage
 from plutolab_api.models.user_api_key import UserApiKey
 from plutolab_api.schemas.rag import (
@@ -37,7 +37,7 @@ from plutolab_api.services.query_router import (
 )
 from plutolab_api.services.retriever import HybridRetriever, SearchMode
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 SYSTEM_PROMPT_TEMPLATE = """你是一个严谨专业的智能知识库问答助手。
 请根据以下提供的参考文档片段回答用户问题。
@@ -65,9 +65,7 @@ class RAGChatService:
         self._retriever = retriever or HybridRetriever(embedder=self._embedder)
         self._http_client = http_client
 
-    async def get_user_llm_key(
-        self, db: AsyncSession, user_id: UUID, provider: str
-    ) -> str | None:
+    async def get_user_llm_key(self, db: AsyncSession, user_id: UUID, provider: str) -> str | None:
         """Fetch and Fernet-decrypt the user's latest API key for the requested provider."""
         stmt = (
             select(UserApiKey)
@@ -81,7 +79,7 @@ class RAGChatService:
                 return decrypt(key_record.encrypted_key)
             except Exception as e:
                 logger.warning(
-                    "rag_chat.key_decrypt_failed", user_id=str(user_id), error=str(e)
+                    "rag_chat.key_decrypt_failed", user_id=str(user_id), error_type=type(e).__name__
                 )
         return None
 
@@ -115,9 +113,7 @@ class RAGChatService:
                 f"[{idx}] 来源: 《{res.filename}》{page_info}\n{res.content.strip()}"
             )
 
-        context_text = (
-            "\n\n".join(context_parts) if context_parts else "（未检索到相关文档切片）"
-        )
+        context_text = "\n\n".join(context_parts) if context_parts else "（未检索到相关文档切片）"
         return context_text, citations
 
     async def _get_chat_history(
@@ -257,9 +253,7 @@ class RAGChatService:
         close_client = self._http_client is None
 
         try:
-            async with client.stream(
-                "POST", url, json=payload, headers=headers
-            ) as resp:
+            async with client.stream("POST", url, json=payload, headers=headers) as resp:
                 resp.raise_for_status()
                 async for line in resp.aiter_lines():
                     line = line.strip()
@@ -317,11 +311,7 @@ class RAGChatService:
         # 4. Prepare conversation prompt
         system_prompt = SYSTEM_PROMPT_TEMPLATE.format(context_text=context_text)
         # Exclude the latest user message from history if already inserted
-        if (
-            history
-            and history[-1]["role"] == "user"
-            and history[-1]["content"] == query
-        ):
+        if history and history[-1]["role"] == "user" and history[-1]["content"] == query:
             history = history[:-1]
 
         llm_messages = [{"role": "system", "content": system_prompt}]
@@ -331,28 +321,21 @@ class RAGChatService:
         # 5. Resolve LLM provider & API Key
         provider = "deepseek" if "deepseek" in model.lower() else "openai"
         base_url = (
-            "https://api.deepseek.com"
-            if provider == "deepseek"
-            else "https://api.openai.com/v1"
+            "https://api.deepseek.com" if provider == "deepseek" else "https://api.openai.com/v1"
         )
         api_key = await self.get_user_llm_key(db, user_id, provider)
 
         # 6. Stream tokens (from remote LLM if key present, else deterministic mock)
         full_response_text = ""
+        failed = False
         token_stream: AsyncIterator[str]
         if api_key:
-            try:
-                token_stream = self._stream_openai_compatible(
-                    base_url=base_url,
-                    api_key=api_key,
-                    model=model,
-                    messages=llm_messages,
-                )
-            except Exception as e:
-                logger.warning(
-                    "rag_chat.remote_stream_failed_fallback_to_mock", error=str(e)
-                )
-                token_stream = self._stream_mock_response(query, citations)
+            token_stream = self._stream_openai_compatible(
+                base_url=base_url,
+                api_key=api_key,
+                model=model,
+                messages=llm_messages,
+            )
         else:
             token_stream = self._stream_mock_response(query, citations)
 
@@ -362,9 +345,8 @@ class RAGChatService:
                 delta_event = ChatStreamChunk(delta=token)
                 yield f"data: {delta_event.model_dump_json()}\n\n"
         except Exception as e:
-            logger.error("rag_chat.streaming_error", error=str(e))
-            err_event = ChatStreamChunk(delta=f"\n[生成中断: {e!s}]")
-            yield f"data: {err_event.model_dump_json()}\n\n"
+            failed = True
+            logger.error("rag_chat.streaming_error", error_type=type(e).__name__)
 
         # 7. Persist Assistant message to database
         try:
@@ -384,11 +366,12 @@ class RAGChatService:
             conversation.updated_at = func.clock_timestamp()
             await db.commit()
         except Exception as e:
-            logger.error("rag_chat.persist_assistant_failed", error=str(e))
+            failed = True
+            logger.error("rag_chat.persist_assistant_failed", error_type=type(e).__name__)
             await db.rollback()
 
         # 8. Emit final termination events
-        finish_event = ChatStreamChunk(finish_reason="stop")
+        finish_event = ChatStreamChunk(finish_reason="error" if failed else "stop")
         yield f"data: {finish_event.model_dump_json()}\n\n"
         yield "data: [DONE]\n\n"
 

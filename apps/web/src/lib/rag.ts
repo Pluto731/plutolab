@@ -10,6 +10,8 @@
  * - Browser-native SSE typewriter streaming with Citation event extraction
  */
 
+import { readRAGStream } from './rag-stream'
+
 import { API_URL } from '@/lib/api'
 import { getAccessToken } from '@/lib/auth'
 
@@ -31,7 +33,7 @@ export interface CitationItem {
   chunk_index: number
   content: string
   similarity: number
-  metadata: Record<string, any>
+  metadata: Record<string, unknown>
 }
 
 export interface SearchResultItem {
@@ -42,7 +44,7 @@ export interface SearchResultItem {
   content: string
   score: number
   retrieval_source: RetrievalSource
-  metadata: Record<string, any>
+  metadata: Record<string, unknown>
 }
 
 export interface SearchRequest {
@@ -108,8 +110,8 @@ export interface DocumentPublic {
   char_count: number
   chunk_count: number
   status: DocumentStatus
-  error_message: string | null
-  metadata: Record<string, any>
+  error_msg: string | null
+  file_size: number
   created_at: string
   updated_at: string
 }
@@ -411,81 +413,23 @@ export async function streamRAGMessage(
   callbacks: StreamCallbacks,
   signal?: AbortSignal,
 ): Promise<void> {
-  const headers = authHeaders()
-  const res = await fetch(`${API_URL}/api/v1/rag/conversations/${conversationId}/messages`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ ...payload, stream: true }),
-    signal,
-  })
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null)
-    const msg = detailMessage(errorData, `HTTP ${res.status}: ${res.statusText}`)
-    const err = new Error(msg)
-    callbacks.onError?.(err)
-    throw err
-  }
-
-  if (!res.body) {
-    const err = new Error('Response body is null or streaming unsupported')
-    callbacks.onError?.(err)
-    throw err
-  }
-
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder('utf-8')
-  let buffer = ''
-
   try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
-
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (!trimmed || !trimmed.startsWith('data:')) continue
-
-        const dataStr = trimmed.slice(5).trim()
-        if (dataStr === '[DONE]') {
-          callbacks.onDone?.()
-          return
-        }
-
-        try {
-          const chunk = JSON.parse(dataStr) as ChatStreamChunk
-          if (chunk.citation) {
-            callbacks.onCitation?.(chunk.citation)
-          }
-          if (chunk.delta) {
-            callbacks.onDelta?.(chunk.delta)
-          }
-        } catch {
-          // Ignore malformed partial chunks
-        }
-      }
+    const res = await fetch(`${API_URL}/api/v1/rag/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ ...payload, stream: true }),
+      signal,
+    })
+    if (!res.ok) {
+      const data: unknown = await res.json().catch(() => null)
+      throw new Error(detailMessage(data, `发送失败 (${res.status})`))
     }
-
-    if (buffer.trim().startsWith('data:')) {
-      const dataStr = buffer.trim().slice(5).trim()
-      if (dataStr === '[DONE]') {
-        callbacks.onDone?.()
-        return
-      }
-    }
-
-    callbacks.onDone?.()
+    if (!res.body) throw new Error('浏览器无法读取回答，请重试')
+    await readRAGStream(res.body, callbacks)
   } catch (error: unknown) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      return
-    }
-    callbacks.onError?.(error instanceof Error ? error : new Error(String(error)))
-    throw error
-  } finally {
-    reader.releaseLock()
+    if (signal?.aborted) return
+    const failure = error instanceof Error ? error : new Error('回答生成失败，请重试')
+    callbacks.onError?.(failure)
+    throw failure
   }
 }
