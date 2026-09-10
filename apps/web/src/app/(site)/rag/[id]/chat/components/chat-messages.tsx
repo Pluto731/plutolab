@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { BookOpen, Bot, FileText, Loader2, RefreshCw, Sparkles, User } from 'lucide-react'
-import React, { useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -45,13 +45,29 @@ export function ChatMessages({
   onSendPresetQuery,
   onOpenCitation,
 }: ChatMessagesProps) {
-  const bottomRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const followBottomRef = useRef(true)
 
-  // Auto-scroll on content updates
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [conversation?.messages, streamingMessage, streamingCitations])
+    followBottomRef.current = true
+  }, [conversation?.id])
+
+  // Follow new content only while the reader stays near the bottom. Avoid
+  // restarting smooth animations for every token or scrolling the outer page.
+  useEffect(() => {
+    const container = containerRef.current
+    if (container && followBottomRef.current) {
+      container.scrollTo({ top: container.scrollHeight, behavior: 'instant' })
+    }
+  }, [
+    conversation?.id,
+    conversation?.messages,
+    streamingMessage,
+    streamingCitations.length,
+    isStreaming,
+    streamError,
+    isLoading,
+  ])
 
   if (isLoading && !conversation) {
     return (
@@ -114,7 +130,15 @@ export function ChatMessages({
   }
 
   return (
-    <div ref={containerRef} className="flex-1 space-y-6 overflow-y-auto p-4 sm:p-6">
+    <div
+      ref={containerRef}
+      onScroll={(event) => {
+        const container = event.currentTarget
+        followBottomRef.current =
+          container.scrollHeight - container.scrollTop - container.clientHeight <= 96
+      }}
+      className="min-h-0 flex-1 space-y-6 overflow-y-auto p-4 sm:p-6"
+    >
       {messages.map((msg: MessagePublic) => {
         const isUser = msg.role === 'user'
 
@@ -129,7 +153,7 @@ export function ChatMessages({
             <div
               className={`flex size-8 shrink-0 items-center justify-center rounded-xl text-xs font-semibold ${
                 isUser
-                  ? 'bg-primary text-white shadow-xs'
+                  ? 'bg-primary text-primary-foreground shadow-xs'
                   : 'bg-zinc-100 text-zinc-700 ring-1 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:ring-white/[0.1]'
               }`}
             >
@@ -260,7 +284,6 @@ export function ChatMessages({
         </div>
       )}
 
-      <div ref={bottomRef} />
     </div>
   )
 }

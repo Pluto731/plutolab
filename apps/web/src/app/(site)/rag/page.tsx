@@ -5,14 +5,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   BookOpen,
   FolderPlus,
-  Loader2,
   Plus,
   Search,
   Sparkles,
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useAuthUser } from "@/components/auth/use-auth";
 import { Button } from "@/components/ui/button";
@@ -97,7 +96,7 @@ export default function RAGKnowledgeBasesPage() {
   }, [knowledgeBases, searchQuery]);
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl space-y-6 px-4 pb-24 pt-20 md:px-6 md:pt-10">
       {/* Top Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -105,10 +104,10 @@ export default function RAGKnowledgeBasesPage() {
             <Sparkles className="size-3.5" />
             <span>RAG 知识中枢</span>
           </div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-3xl">
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
             智能文档知识库
           </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-sm text-muted-foreground">
             上传文档构建私有语义索引，支持多格式切片、向量检索与精准原文角标溯源。
           </p>
         </div>
@@ -132,24 +131,24 @@ export default function RAGKnowledgeBasesPage() {
       {/* Search & Filter Row */}
       <div className="flex items-center justify-between gap-4">
         <div className="relative w-full max-w-md">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="搜索知识库名称或描述..."
-            className="pl-9 h-9 text-sm bg-white/50 backdrop-blur-md dark:bg-zinc-900/50"
+            className="pl-9 h-9 text-sm bg-card/60 backdrop-blur-md"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
               <X className="size-3.5" />
             </button>
           )}
         </div>
 
-        <div className="text-xs text-zinc-400 shrink-0">
+        <div className="text-xs text-muted-foreground shrink-0">
           共 {filteredKBs.length} 个知识库
         </div>
       </div>
@@ -161,7 +160,7 @@ export default function RAGKnowledgeBasesPage() {
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="rounded-2xl border border-zinc-200/60 bg-white/40 p-5 backdrop-blur-md dark:border-white/[0.05] dark:bg-zinc-900/30 space-y-4"
+              className="rounded-2xl border border-border/60 bg-card/60 p-5 backdrop-blur-md space-y-4"
             >
               <div className="flex items-center gap-3">
                 <Skeleton className="size-11 rounded-xl" />
@@ -196,14 +195,14 @@ export default function RAGKnowledgeBasesPage() {
         </div>
       ) : filteredKBs.length === 0 ? (
         /* Empty State */
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200/80 bg-white/40 py-16 px-4 text-center backdrop-blur-md dark:border-white/[0.08] dark:bg-zinc-900/20">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 bg-card/60 py-16 px-4 text-center backdrop-blur-md">
           <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-4">
             <BookOpen className="size-7" />
           </div>
-          <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+          <h3 className="text-base font-semibold text-foreground">
             {searchQuery ? "未找到匹配的知识库" : "尚未创建任何知识库"}
           </h3>
-          <p className="mt-1.5 max-w-sm text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1.5 max-w-sm text-xs text-muted-foreground">
             {searchQuery
               ? "您可以尝试更改搜索关键词，或清除筛选条件。"
               : "知识库用于归类管理您的特定业务领域文档，立即创建属于您的第一个私有知识空间。"}

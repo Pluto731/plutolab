@@ -35,6 +35,15 @@
 
 ## 2. 当前研发进度状态 (2026-09-09 本地核验)
 
+### Slice 2：RAG UI alignment & scroll ergonomics（2026-09-10 本地验证完成，授权提交）
+
+- **目标与实现**：`apps/web/src/app/(site)/rag/[id]/chat/components/chat-messages.tsx` 将用户头像 `text-white` 改为 `text-primary-foreground`；滚动事件记录距底部是否 ≤96px，仅在接近底部时跟随新增内容，阅读历史时保留位置，返回底部恢复跟随，切换会话重置。仅滚动聊天容器，每次更新使用即时滚动，避免逐 token 重启 smooth 动画。
+- **页面对齐**：`apps/web/src/app/(site)/rag/page.tsx` 采用 Dashboard 的 `pt-20 md:pt-10`、横向留白与 `pb-24`，区块间距 `space-y-6`；标题/辅助文字与搜索、骨架、空态表面统一 semantic foreground/card/border tokens。移除这两个组件中未使用的默认 React 导入，以及 landing 的 Loader2。
+- **回归**：新增 `apps/web/tests/chat-scroll.test.cjs`，使用现有 TypeScript 与 Node runner 执行真实组件的 effect/handler，覆盖历史位置保持、96/97px 边界、恢复跟随、会话切换、空会话开始流式回答。模拟 DOM 尺寸，不等同于浏览器视觉验收。
+- **命令**（cwd=`apps/web`）：`node --test tests/rag.test.cjs tests/chat-scroll.test.cjs` → exit 0（`/tmp/slice2-checks.9pwdYK`）；`pnpm exec tsc --noEmit` → exit 0（`/tmp/slice2-typecheck.nwOiBE`）。另用 Node TypeScript compiler API 开启 noUnusedLocals/noUnusedParameters，过滤两个触及组件的全部诊断 → exit 0（`/tmp/slice2-unused.ImuImT`）。
+- **Build**（仓库根目录）：`NEXT_TELEMETRY_DISABLED=1 pnpm --filter @plutolab/web build` → exit 0（`/tmp/slice2-build.5uMCTI`）；`git diff --check` → exit 0。未更改 API，未重跑后端；未执行浏览器明暗主题/移动端视觉验收。既有 `next lint` 脚本问题未在此切片处理。
+- **边界与下一步**：Slice 1 已提交 `2be03ab3891d7f0e586b6af1d0e92896d2c417a8`；用户已授权提交 Slice 2 的两个组件、滚动回归测试与本交接文档，主题 `feat(rag-ui): fix dark contrast, token alignment, and scroll anchoring`，SHA 通过 `git log -1` 查询。未推送/部署，原有 Copilot 改动保持未暂存。下一步本地浏览器验收。
+
 ### Slice 1：RAG Correctness & Defect Remediation（本地验证完成，2026-09-10 授权提交）
 
 - **目标与协议**：本轮优先修复运行时正确性。准备、生成、持久化失败输出 `error: {code, message}`；消息提交成功后才发送 `finish_reason: stop` 与 `[DONE]`。错误消息不包含底层异常或密钥，异常原因保留在服务异常链中。
