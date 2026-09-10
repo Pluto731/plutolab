@@ -224,9 +224,9 @@ export function DocumentTable({
                             <p className="truncate font-medium text-zinc-900 dark:text-zinc-100" title={doc.filename}>
                               {doc.filename}
                             </p>
-                            {doc.error_message && (
-                              <p className="truncate text-[11px] text-destructive" title={doc.error_message}>
-                                错误: {doc.error_message}
+                            {doc.error_msg && (
+                              <p className="truncate text-[11px] text-destructive" title={doc.error_msg}>
+                                错误: {doc.error_msg}
                               </p>
                             )}
                           </div>
@@ -260,7 +260,7 @@ export function DocumentTable({
 
                       {/* Status */}
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <StatusBadge status={doc.status} errorMessage={doc.error_message} />
+                        <StatusBadge status={doc.status} errorMessage={doc.error_msg} />
                       </td>
 
                       {/* Time */}

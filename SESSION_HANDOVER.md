@@ -7,7 +7,7 @@
 > 请读取 PlutoLab 项目的 SESSION_HANDOVER.md 以及 Obsidian 中的 Phase 4 执行手册，按照四阶段工作流继续进行下一个微切片开发。
 > ```
 > 
-> AI 读完本文件与对应手册，将在 5 秒内 100% 满血加载全部上下文记忆，无需从头介绍项目！
+> 交接记录是进度索引；继续工作前核对当前 Git、代码与测试。访问或修改 Obsidian 须在当前授权范围内。
 
 ---
 
@@ -19,9 +19,9 @@
   - [[Phase 4 - RAG 文档问答]]
   - [[Agent 架构升级与深度融合设计]]
   - [[里程碑与进度]]
-- **Python 运行环境**：必须且仅使用 **`gemini`** Conda 环境：
-  `/opt/homebrew/Caskroom/miniconda/base/envs/gemini/bin/python`
-  `/opt/homebrew/Caskroom/miniconda/base/envs/gemini/bin/pytest`
+- **Python 运行环境**：必须且仅使用 **`codex`** Conda 环境（2026-09-09 实测 Python 3.11.16）：
+  `/opt/homebrew/Caskroom/miniconda/base/envs/codex/bin/python`
+  测试使用该解释器的 `-m pytest`，安装依赖使用 `-m pip`。
 - **前端工具链**：`pnpm` / Turbopack
 - **远程 VPS 生产环境**：
   - 公网 IP: `107.175.190.218` (SSH: `ssh vps` 或 `ssh -p 52222 pluto@107.175.190.218`)
@@ -33,7 +33,42 @@
 
 ---
 
-## 2. 当前研发进度状态 (截至 2026-09-04)
+## 2. 当前研发进度状态 (2026-09-09 本地核验)
+
+### Slice 1：RAG Correctness & Defect Remediation（本地验证完成，2026-09-10 授权提交）
+
+- **目标与协议**：本轮优先修复运行时正确性。准备、生成、持久化失败输出 `error: {code, message}`；消息提交成功后才发送 `finish_reason: stop` 与 `[DONE]`。错误消息不包含底层异常或密钥，异常原因保留在服务异常链中。
+- **Key**：`apps/api/src/plutolab_api/services/chat.py` 使用 `key_ciphertext`；字段读取、非空/类型验证及解密均在异常边界内。无记录仍返回 `None`；有记录但密文无效则显式失败。
+- **Splitter**：`services/text_splitter.py` 对保留重叠与新片段合并后的真实 tokenizer 计数执行预算检查，并验证最终输出。回归覆盖原先 512 上限输出 565 tokens 的边界及中英文/emoji。
+- **SSE**：更新 API `schemas/rag.py`、`services/chat.py`、Web `apps/web/src/lib/rag.ts`、`packages/types/src/rag.ts`。客户端意外 EOF、畸形 JSON、结构化错误触发一次 `onError` 并拒绝 Promise；主动取消不算成功或失败。上游提供商流也必须收到 `[DONE]`。
+- **Document contract**：沿用后端 `error_msg`；同步 Web/共享类型及 `apps/web/src/app/(site)/rag/[id]/components/document-table.tsx` 的错误详情与状态提示。
+- **回归文件**：新增 `apps/api/tests/test_rag_correctness.py`、`apps/web/tests/rag.test.cjs`；扩展 `apps/api/tests/test_text_splitter.py`。新增失败导入测试揭示测试后台 session 回滚会撤销用户 fixture，已在 `apps/api/tests/conftest.py` 增加 `join_transaction_mode="create_savepoint"`；未改生产 session 配置。
+- **Python**：所有命令仅使用 `/opt/homebrew/Caskroom/miniconda/base/envs/codex/bin/python`（以下记为 `PY`）；API 命令 cwd=`apps/api`，Web 命令 cwd=`apps/web`。
+- **定向验证**：`PY -m pytest tests/test_rag_correctness.py tests/test_rag_chat.py tests/test_text_splitter.py tests/test_rag_api.py tests/test_rag_schemas.py -q --junitxml=/tmp/slice1_targeted.xml` → exit 0，45 tests 全部通过（新增导入失败用例之前的定向结果）。日志 `/tmp/slice1_test.log`。
+- **完整验证**：`PY -m pytest -q --junitxml=/tmp/slice1_full.xml` → exit 0，314 tests，0 failures/errors/skips；日志 `/tmp/slice1_full_test.log`。初次全量为 313 passed / 1 failed；修复上述 fixture 后，失败用例及全量重跑均通过。
+- **Web**：`node --test tests/rag.test.cjs`、`pnpm exec tsc --noEmit` 均 exit 0；仓库根目录 `NEXT_TELEMETRY_DISABLED=1 pnpm --filter @plutolab/web build` → exit 0。日志分别为 `/tmp/slice1_web_test.log`、`/tmp/slice1_typecheck.log`、`/tmp/slice1_build.log`。
+- **静态检查**：`PY -m ruff check --no-cache src/plutolab_api/services/chat.py tests/test_rag_correctness.py tests/test_text_splitter.py tests/conftest.py` → exit 0。对另两个触及文件 `services/text_splitter.py` 与 `schemas/rag.py` 的检查仍 exit 1，共 9 条既有诊断；修改前相同生产文件共 10 条，按文件/规则/消息比较无新增（`/tmp/slice1_ruff_before.json`、`/tmp/slice1_ruff_after.json`）。
+- **格式与 diff**：上述六个触及 Python 文件 `ruff format --check` → exit 1，仅 `tests/conftest.py` 的既有第 76 行格式问题；对 HEAD 原文运行同一检查也 exit 1，保留无关格式。其余五个文件格式通过；`git diff --check` → exit 0。
+- **提交与边界**：2026-09-10 用户授权仅提交 Slice 1 文件与本交接文档；提交主题 `fix(rag): resolve key decryption, chunk budgets, SSE errors and error_msg alignment`。提交后用 `git log -1` 获取 SHA；原有 Copilot 改动保留在工作区、不纳入提交，因此整体工作区不会 clean。未推送或部署，未修改 Obsidian/记忆文件。缺 key 时的 mock 模式、持久化 ingestion 调度及其他审计事项仍需独立切片；本轮未进行 UI 美化或无用导入清理。
+
+### 接续核验快照（Slice 1 之前）
+
+- **当前分支 / HEAD**：`refactor/rag-ui-and-ingestion` / `d82b2bc` (`feat(rag): add query routing and reflective retrieval retry`)；未核验远端同步状态。
+- **Phase 4.5.d**：查询路由与低置信度检索重试已提交。历史上线记录不是本次生产状态证明。
+- **Phase 4.5.e 首块**：本地未提交。Notes/Tasks HTTP 查询复用 `services/notes.py`、`services/tasks.py`；`services/copilot/` 提供 Pydantic 契约与显式 Registry，目前仅注册 `search_tasks`、`search_notes`。
+- **能力边界**：工具接受调用方传入的用户 ID，查询按该 ID 隔离；尚无从认证上下文到工具调用的执行入口。`ToolProposal` 只是契约，提案生成、确认执行、持久化幂等与 RAG SSE 联动尚未实现。
+- **本次修复**：`services/__init__.py` 的 I001 导入排序与 RUF022 导出排序；保留已有业务改动。
+- **本地依赖**：Docker 29.4.0；Postgres/Redis 容器健康，测试配置指向 `localhost:5432`，fixture 使用独立 `pluto_test` 数据库及事务回滚。
+- **验证命令**（cwd=`apps/api`；下文 `PY` 表示 `/opt/homebrew/Caskroom/miniconda/base/envs/codex/bin/python`）：
+  - `PY -m pytest tests/test_copilot_tools.py tests/test_notes.py tests/test_tasks.py -q`：exit 0，`73 passed in 13.48s`；日志 `/tmp/plutolab-copilot-pytest.n72Cxe`。
+  - `PY -m ruff check` 与 `PY -m ruff format --check`，目标为 `src/plutolab_api/api/v1/{notes,tasks}.py`、`src/plutolab_api/services/{__init__,notes,tasks}.py`、`src/plutolab_api/services/copilot`、`tests/test_copilot_tools.py`：均 exit 0；日志 `/tmp/plutolab-copilot-checks.letPgL`。首次 check 为 exit 1，修复上述两处后通过。
+  - `PY -m pytest -q`：exit 0，`297 passed, 1 warning in 37.65s`；日志 `/tmp/plutolab-api-regression.KVFtfz`。警告来自 `test_token_signed_with_other_secret_is_rejected` 使用的 12 字节 HMAC 测试密钥（`InsecureKeyLengthWarning`）。
+  - 仓库根目录 `git diff --check`：exit 0。
+  - Web typecheck/build 本次未运行（未修改前端）；历史结果见下，不作为本次验证。
+- **下一切片**：先核对既有 4.5.e 计划，再实现 `propose_create_task` 与用户确认执行器；验收须覆盖未确认不写入、幂等、跨用户拒绝、非法日期。当前只读首块通过不代表写入流程可用。
+- **交付边界**：本次不提交、不推送、不部署；未连接 VPS，未修改 Obsidian 或记忆文件。`/tmp` 日志为本机临时证据。
+
+### 2026-09-04 历史快照（非当前状态）
 
 - **当前分支**：`main` (与 `origin/main` 保持最新同步)
 - **最新 Git Commit**：`0ab12d3` (`fix(rag): remove p4 development badges, wire dashboard rag count, and enhance security`)
@@ -70,9 +105,11 @@
 | **Phase 4.5.a** | 对话工作区双栏布局与会话历史树 | ✅ 完成 | 知识库问答页面 `/rag/[id]/chat`、左侧会话历史侧边栏（新建/重命名/删除）、右侧主视窗骨架，commit `d8f80d8` |
 | **Phase 4.5.b** | 原生 SSE 打字机流式响应与 Markdown 渲染 | ✅ 完成 | 对接 `streamRAGMessage`，逐字打字机平滑渲染、Markdown 代码高亮与复制、中止生成，commit `3719ba8` |
 | **Phase 4.5.c** | 行内引用角标与侧边原文高亮抽屉 | ✅ 完成 | 点击 `[^1]` 或引用胶囊滑出抽屉、原文切片高亮、余弦相似度与多条翻页，commit `c5fcb27` |
+| **Phase 4.5.d** | 查询路由与自反思检索 | ✅ 已提交 | `d82b2bc`；生产状态本次未核验 |
+| **Phase 4.5.e** | Copilot 工具层 | 🚧 本地首块 | 只读 Notes/Tasks 工具未提交；提案与确认执行待实现 |
 | **Phase 4.6** | 交付与 VPS 生产验收 (回归+提交+上线) | ✅ 100% | 285 项 pytest 全绿、typecheck/build 零错误、Alembic 0012 (head)、公网全流程端到端冒烟通过 |
 | **Phase 4.polish** | 生产收尾与安全排查 | ✅ 完成 | 移除全站 P4 标识、仪表盘真数据接通、切片数聚合补齐、50MB 上传防护，commit `0ab12d3` |
-| **Phase 4 总体** | **RAG 智能文档问答核心系统** | 🏆 **全部竣工** | **16 个微切片 + 生产收尾 100% 交付上线，全套知识中枢生产就绪！** |
+| **Phase 4 核心 / 扩展** | **RAG 智能文档问答与 Copilot** | 核心历史交付，扩展进行中 | 4.5.e 仅有本地只读首块；不能将核心交付状态扩展到 Copilot 写入流程 |
 
 ---
 
@@ -80,12 +117,12 @@
 
 每个微切片研发必须且严格遵循四个阶段：
 1. **阶段 1：方案设计与计划记录（前置门禁）**
-   - 必须先在 `/Users/pluto/MyNotes/Projects/项目/PlutoLab/开发日志/` 新建对应切片日志。
+   - 在授权范围内查阅并续写 `/Users/pluto/MyNotes/Projects/项目/PlutoLab/开发日志/` 中已有切片日志；仅在无对应日志时新建。
    - 明确背景目标、代码设计蓝图、Checklist 与风险预案。未写笔记严禁动代码！
 2. **阶段 2：规范编码与自查**
    - 编写实现代码与全覆盖单测，运行单测与全量回归确保 100% 绿灯。
 3. **阶段 3：沉淀开发日志与复盘**
    - 详细回填开发日志：记录写了什么具体类/函数、做了什么关键事、ADR 决断。
-   - 提交 Git Commit 并推送，SSH 到 VPS 执行更新部署。
+   - 仅在当前会话明确授权时提交、推送或部署；历史上线说明不构成授权。本次仅本地核验与交接修正，不部署。
 4. **阶段 4：执行复核与交付**
    - 逐项复核交付看板，更新执行手册与主需求笔记。

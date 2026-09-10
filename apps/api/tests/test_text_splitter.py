@@ -18,6 +18,29 @@ def test_count_tokens() -> None:
     assert zh_tokens >= 8
 
 
+@pytest.mark.parametrize("size,overlap", [(512, 64), (10, 4)])
+def test_retained_overlap_cannot_overflow_next_chunk(size: int, overlap: int) -> None:
+    from plutolab_api.services.doc_parser import DocumentParser
+
+    text = " ".join(["one"] * overlap) + "\n" + " ".join(["five"] * (size - 2))
+    parsed = DocumentParser.parse(text.encode(), "overlap.txt", "txt")
+    chunks = RecursiveSplitter(chunk_size=size, chunk_overlap=overlap).split_document(parsed)
+    assert len(chunks) >= 2
+    assert all(chunk.token_count == count_tokens(chunk.content) <= size for chunk in chunks)
+    assert chunks[0].content.startswith("one")
+    assert chunks[-1].content.endswith("five")
+
+
+@pytest.mark.parametrize("text", ["中文🙂" * 700, "a_b.c/" * 700, "word\n" * 1200])
+def test_default_chunk_budget_at_token_boundaries(text: str) -> None:
+    import tiktoken
+
+    encoder = tiktoken.get_encoding("cl100k_base")
+    chunks = RecursiveSplitter().split_text(text)
+    assert len(chunks) > 1
+    assert all(len(encoder.encode(chunk, disallowed_special=())) <= 512 for chunk in chunks)
+
+
 def test_recursive_splitter_initialization_validation() -> None:
     # Valid
     splitter = RecursiveSplitter(chunk_size=256, chunk_overlap=32)

@@ -90,7 +90,7 @@ export interface DocumentPublic {
   char_count: number;
   chunk_count: number;
   status: DocumentStatus;
-  error_message: string | null;
+  error_msg: string | null;
   metadata: Record<string, any>;
   created_at: string;
   updated_at: string;
@@ -147,4 +147,5 @@ export interface ChatStreamChunk {
   delta?: string;
   citation?: CitationItem | null;
   finish_reason?: string | null;
+  error?: { code: string; message: string } | null;
 }

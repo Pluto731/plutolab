@@ -158,6 +158,7 @@ async def client(
         class_=AsyncSession,
         expire_on_commit=False,
         autoflush=False,
+        join_transaction_mode="create_savepoint",
     )
     app.dependency_overrides[get_ingestion_service] = lambda: DocumentIngestionService(
         session_factory=ingestion_session_factory,

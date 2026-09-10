@@ -108,7 +108,7 @@ export interface DocumentPublic {
   char_count: number
   chunk_count: number
   status: DocumentStatus
-  error_message: string | null
+  error_msg: string | null
   metadata: Record<string, any>
   created_at: string
   updated_at: string
@@ -167,6 +167,7 @@ export interface ChatStreamChunk {
   delta?: string
   citation?: CitationItem | null
   finish_reason?: string | null
+  error?: { code: string; message: string } | null
 }
 
 export interface StreamCallbacks {
@@ -411,81 +412,66 @@ export async function streamRAGMessage(
   callbacks: StreamCallbacks,
   signal?: AbortSignal,
 ): Promise<void> {
-  const headers = authHeaders()
-  const res = await fetch(`${API_URL}/api/v1/rag/conversations/${conversationId}/messages`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ ...payload, stream: true }),
-    signal,
-  })
-
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => null)
-    const msg = detailMessage(errorData, `HTTP ${res.status}: ${res.statusText}`)
-    const err = new Error(msg)
-    callbacks.onError?.(err)
-    throw err
-  }
-
-  if (!res.body) {
-    const err = new Error('Response body is null or streaming unsupported')
-    callbacks.onError?.(err)
-    throw err
-  }
-
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder('utf-8')
-  let buffer = ''
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined
 
   try {
+    const res = await fetch(`${API_URL}/api/v1/rag/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ ...payload, stream: true }),
+      signal,
+    })
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => null)
+      throw new Error(detailMessage(errorData, `HTTP ${res.status}: ${res.statusText}`))
+    }
+    if (!res.body) throw new Error('Response body is null or streaming unsupported')
+
+    reader = res.body.getReader()
+    const decoder = new TextDecoder('utf-8')
+    let buffer = ''
+
+    const consumeLine = (line: string): boolean => {
+      const trimmed = line.trim()
+      if (!trimmed.startsWith('data:')) return false
+      const data = trimmed.slice(5).trim()
+      if (data === '[DONE]') return true
+
+      const chunk = JSON.parse(data) as ChatStreamChunk
+      if (chunk.error) throw new Error(chunk.error.message || 'Answer generation failed')
+      if (chunk.finish_reason && chunk.finish_reason !== 'stop') {
+        throw new Error('Answer generation did not complete successfully')
+      }
+      if (chunk.citation) callbacks.onCitation?.(chunk.citation)
+      if (chunk.delta) callbacks.onDelta?.(chunk.delta)
+      return false
+    }
+
     while (true) {
       const { done, value } = await reader.read()
-      if (done) break
-
-      buffer += decoder.decode(value, { stream: true })
+      buffer += done ? decoder.decode() : decoder.decode(value, { stream: true })
       const lines = buffer.split('\n')
       buffer = lines.pop() ?? ''
-
       for (const line of lines) {
-        const trimmed = line.trim()
-        if (!trimmed || !trimmed.startsWith('data:')) continue
-
-        const dataStr = trimmed.slice(5).trim()
-        if (dataStr === '[DONE]') {
+        if (consumeLine(line)) {
           callbacks.onDone?.()
           return
         }
-
-        try {
-          const chunk = JSON.parse(dataStr) as ChatStreamChunk
-          if (chunk.citation) {
-            callbacks.onCitation?.(chunk.citation)
-          }
-          if (chunk.delta) {
-            callbacks.onDelta?.(chunk.delta)
-          }
-        } catch {
-          // Ignore malformed partial chunks
+      }
+      if (done) {
+        if (buffer && consumeLine(buffer)) {
+          callbacks.onDone?.()
+          return
         }
+        throw new Error('Answer stream ended unexpectedly before completion. Please retry.')
       }
     }
-
-    if (buffer.trim().startsWith('data:')) {
-      const dataStr = buffer.trim().slice(5).trim()
-      if (dataStr === '[DONE]') {
-        callbacks.onDone?.()
-        return
-      }
-    }
-
-    callbacks.onDone?.()
   } catch (error: unknown) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      return
-    }
-    callbacks.onError?.(error instanceof Error ? error : new Error(String(error)))
-    throw error
+    if (signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) return
+    const streamError = error instanceof Error ? error : new Error(String(error))
+    callbacks.onError?.(streamError)
+    throw streamError
   } finally {
-    reader.releaseLock()
+    reader?.releaseLock()
   }
 }
