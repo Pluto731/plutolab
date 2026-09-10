@@ -8,6 +8,11 @@ const ts = require('typescript')
 // Execute the real client with only authentication and transport replaced.
 // TypeScript is already a project dependency; no test framework is required.
 const source = fs.readFileSync(path.join(__dirname, '../src/lib/rag.ts'), 'utf8')
+const parserSource = fs.readFileSync(path.join(__dirname, '../src/lib/rag-stream.ts'), 'utf8')
+const parser = { exports: {}, TextDecoder, Error }
+vm.runInNewContext(ts.transpileModule(parserSource, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+}).outputText, parser)
 const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText
@@ -16,6 +21,7 @@ function client(fetch) {
   const sandbox = {
     exports: {}, fetch, TextDecoder, DOMException, Error,
     require(id) {
+      if (id === './rag-stream') return parser.exports
       if (id === '@/lib/api') return { API_URL: 'https://fixture.invalid' }
       if (id === '@/lib/auth') return { getAccessToken: () => null }
       throw new Error(`Unexpected dependency: ${id}`)
@@ -45,7 +51,8 @@ function callbacks() {
 }
 
 test('fragmented UTF-8, CRLF, citations, and DONE complete once', async () => {
-  const citation = { chunk_id: 'fixture', content: '中文' }
+  const citation = { document_id: 'doc', chunk_id: 'fixture', content: '中文',
+    filename: 'fixture.txt', chunk_index: 0, similarity: 0.5, metadata: {} }
   const bytes = new TextEncoder().encode(
     `data: ${JSON.stringify({ citation })}\r\n\r\n` +
     'data: {"delta":"中文🙂"}\r\n\r\n' +

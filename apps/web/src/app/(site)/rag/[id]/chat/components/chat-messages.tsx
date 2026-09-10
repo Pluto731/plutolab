@@ -1,6 +1,7 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
+import Link from 'next/link'
 import { BookOpen, Bot, FileText, Loader2, RefreshCw, Sparkles, User } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
@@ -69,6 +70,8 @@ export function ChatMessages({
     isLoading,
   ])
 
+  const reducedMotion = useReducedMotion()
+
   if (isLoading && !conversation) {
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 overflow-hidden p-4 sm:p-6">
@@ -88,7 +91,7 @@ export function ChatMessages({
 
   const messages = conversation?.messages || []
 
-  if (messages.length === 0 && !streamingMessage && !isStreaming) {
+  if (messages.length === 0 && !streamingMessage && !isStreaming && !streamError) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
         <div className="max-w-md space-y-4">
@@ -99,31 +102,38 @@ export function ChatMessages({
           <div className="space-y-1.5">
             <h3 className="text-lg font-bold text-foreground">与「{kb.title}」开始智能对话</h3>
             <p className="text-xs leading-relaxed text-muted-foreground">
-              基于该知识库收录的 {kb.doc_count} 篇文档与 {kb.chunk_count} 个切片，采用 pgvector
-              余弦向量与全文检索混合召回，提供精准原文溯源解答。
+              {kb.chunk_count > 0
+                ? `从 ${kb.doc_count} 篇文档中寻找线索，点击回答中的引用即可核对原文。`
+                : '先添加文档，解析完成后即可围绕内容提问。'}
             </p>
           </div>
 
           {/* Preset Prompts */}
-          <div className="pt-3 space-y-2">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-              推荐探索问题
-            </p>
-            <div className="space-y-2 text-left">
-              {PRESET_QUERIES.map((q) => (
-                <button
-                  key={q}
-                  onClick={() => onSendPresetQuery?.(q)}
-                  className="w-full rounded-xl border border-border/80 bg-card/60 p-3 text-left text-xs text-foreground transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
-                >
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="size-3.5 text-primary shrink-0" />
-                    <span className="truncate">{q}</span>
-                  </div>
-                </button>
-              ))}
+          {kb.chunk_count === 0 ? (
+            <Button asChild>
+              <Link href={`/rag/${kb.id}`}>添加文档</Link>
+            </Button>
+          ) : (
+            <div className="pt-3 space-y-2">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                推荐探索问题
+              </p>
+              <div className="space-y-2 text-left">
+                {PRESET_QUERIES.map((q) => (
+                  <button
+                    key={q}
+                    onClick={() => onSendPresetQuery?.(q)}
+                    className="w-full rounded-xl border border-border/80 bg-card/60 p-3 text-left text-xs text-foreground transition-all hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="size-3.5 text-primary shrink-0" />
+                      <span className="truncate">{q}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     )
@@ -133,9 +143,8 @@ export function ChatMessages({
     <div
       ref={containerRef}
       onScroll={(event) => {
-        const container = event.currentTarget
-        followBottomRef.current =
-          container.scrollHeight - container.scrollTop - container.clientHeight <= 96
+        const node = event.currentTarget
+        followBottomRef.current = node.scrollHeight - node.scrollTop - node.clientHeight <= 96
       }}
       className="min-h-0 flex-1 space-y-6 overflow-y-auto p-4 sm:p-6"
     >
@@ -145,7 +154,7 @@ export function ChatMessages({
         return (
           <motion.div
             key={msg.id}
-            initial={{ opacity: 0, y: 8 }}
+            initial={reducedMotion ? false : { opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             className={`flex gap-3 max-w-3xl ${isUser ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
           >
@@ -154,19 +163,19 @@ export function ChatMessages({
               className={`flex size-8 shrink-0 items-center justify-center rounded-xl text-xs font-semibold ${
                 isUser
                   ? 'bg-primary text-primary-foreground shadow-xs'
-                  : 'bg-zinc-100 text-zinc-700 ring-1 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:ring-white/[0.1]'
+                  : 'bg-muted text-muted-foreground ring-1 ring-border'
               }`}
             >
               {isUser ? <User className="size-4" /> : <Bot className="size-4 text-primary" />}
             </div>
 
             {/* Bubble */}
-            <div className="space-y-2 min-w-0 max-w-[85%]">
+            <div className="space-y-2 min-w-0 max-w-[85%] [overflow-wrap:anywhere]">
               <div
                 className={`rounded-2xl px-4 py-3 text-xs sm:text-sm leading-relaxed ${
                   isUser
                     ? 'bg-primary text-primary-foreground rounded-tr-xs'
-                    : 'bg-white/80 border border-zinc-200/80 text-zinc-800 dark:bg-zinc-900/80 dark:border-white/[0.08] dark:text-zinc-200 rounded-tl-xs shadow-xs'
+                    : 'bg-card border border-border text-card-foreground rounded-tl-xs shadow-xs'
                 }`}
               >
                 {isUser ? (
@@ -175,9 +184,8 @@ export function ChatMessages({
                   <MarkdownMessage
                     content={msg.content}
                     onCitationClick={(num) => {
-                      if (msg.citations && msg.citations.length > 0) {
-                        const targetIdx = Math.min(Math.max(0, num - 1), msg.citations.length - 1)
-                        onOpenCitation?.(msg.citations, targetIdx)
+                      if (msg.citations[num - 1]) {
+                        onOpenCitation?.(msg.citations, num - 1)
                       }
                     }}
                   />
@@ -187,7 +195,7 @@ export function ChatMessages({
               {/* Citations Preview */}
               {!isUser && msg.citations && msg.citations.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                  <span className="text-[10px] text-zinc-400">参考来源:</span>
+                  <span className="text-[10px] text-muted-foreground">参考来源:</span>
                   {msg.citations.map((cite, idx) => (
                     <button
                       key={cite.chunk_id || idx}
@@ -211,34 +219,30 @@ export function ChatMessages({
       {/* Streaming Assistant Bubble */}
       {isStreaming && (
         <motion.div
-          initial={{ opacity: 0, y: 8 }}
+          initial={reducedMotion ? false : { opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex gap-3 max-w-3xl mr-auto"
         >
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-700 ring-1 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:ring-white/[0.1]">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground ring-1 ring-border">
             <Bot className="size-4 text-primary" />
           </div>
 
-          <div className="space-y-2 min-w-0 max-w-[85%]">
-            <div className="rounded-2xl rounded-tl-xs border border-zinc-200/80 bg-white/80 px-4 py-3 text-xs sm:text-sm leading-relaxed text-zinc-800 shadow-xs dark:border-white/[0.08] dark:bg-zinc-900/80 dark:text-zinc-200">
+          <div className="space-y-2 min-w-0 max-w-[85%] [overflow-wrap:anywhere]">
+            <div className="rounded-2xl rounded-tl-xs border border-border bg-card px-4 py-3 text-xs sm:text-sm leading-relaxed text-card-foreground shadow-xs">
               {streamingMessage ? (
                 <MarkdownMessage
                   content={streamingMessage}
                   isStreaming={true}
                   onCitationClick={(num) => {
-                    if (streamingCitations.length > 0) {
-                      const targetIdx = Math.min(
-                        Math.max(0, num - 1),
-                        streamingCitations.length - 1,
-                      )
-                      onOpenCitation?.(streamingCitations, targetIdx)
+                    if (streamingCitations[num - 1]) {
+                      onOpenCitation?.(streamingCitations, num - 1)
                     }
                   }}
                 />
               ) : (
-                <div className="flex items-center gap-2 text-xs text-zinc-400">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Loader2 className="size-3.5 animate-spin text-primary" />
-                  <span>正在多路检索知识库切片并组织回答...</span>
+                  <span>正在查找相关内容并组织回答...</span>
                 </div>
               )}
             </div>
@@ -246,7 +250,7 @@ export function ChatMessages({
             {/* Streaming Citations */}
             {streamingCitations.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                <span className="text-[10px] text-zinc-400">检索召回:</span>
+                <span className="text-[10px] text-muted-foreground">参考来源:</span>
                 {streamingCitations.map((cite, idx) => (
                   <button
                     key={cite.chunk_id || idx}
@@ -267,8 +271,11 @@ export function ChatMessages({
       )}
 
       {streamError && (
-        <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-xs text-destructive">
-          <span className="min-w-0 truncate">{streamError}</span>
+        <div
+          role="alert"
+          className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-xs text-destructive"
+        >
+          <span className="min-w-0 break-words">{streamError}</span>
           {onRetry && (
             <Button
               type="button"
@@ -283,7 +290,6 @@ export function ChatMessages({
           )}
         </div>
       )}
-
     </div>
   )
 }

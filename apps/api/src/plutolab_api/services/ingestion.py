@@ -10,17 +10,17 @@ Orchestrates:
 
 from uuid import UUID
 
-import structlog
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from plutolab_api.core.logging import get_logger
 from plutolab_api.db.session import AsyncSessionLocal
 from plutolab_api.models.rag import RAGChunk, RAGDocument
 from plutolab_api.services.doc_parser import DocParseError, DocumentParser
-from plutolab_api.services.embedder import EmbeddingService
+from plutolab_api.services.embedder import EmbeddingError, EmbeddingService
 from plutolab_api.services.text_splitter import RecursiveSplitter
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 
 class DocumentIngestionService:
@@ -94,8 +94,8 @@ class DocumentIngestionService:
         user_id: UUID,
     ) -> bool:
         doc = await session.get(RAGDocument, doc_id)
-        if not doc:
-            logger.error("ingestion_doc_not_found", doc_id=str(doc_id))
+        if not doc or doc.kb_id != kb_id or doc.user_id != user_id:
+            logger.warning("ingestion_doc_not_found", doc_id=str(doc_id))
             return False
 
         try:
@@ -108,7 +108,9 @@ class DocumentIngestionService:
             # 2. Parse document text & extract pages
             # Normalize 'note' file_type to 'md' for parsing
             norm_type = "md" if file_type == "note" else file_type
-            parsed_doc = DocumentParser.parse(content=content, filename=filename, file_type=norm_type)
+            parsed_doc = DocumentParser.parse(
+                content=content, filename=filename, file_type=norm_type
+            )
 
             # 3. Recursively split into semantic chunks
             chunks = self.splitter.split_document(parsed_doc)
@@ -155,7 +157,6 @@ class DocumentIngestionService:
             logger.info(
                 "document_ingestion_success",
                 doc_id=str(doc_id),
-                filename=filename,
                 chunks=len(chunks),
                 chars=parsed_doc.char_count,
             )
@@ -165,8 +166,7 @@ class DocumentIngestionService:
             logger.error(
                 "document_ingestion_failed",
                 doc_id=str(doc_id),
-                filename=filename,
-                error=str(exc),
+                error_type=type(exc).__name__,
             )
             await session.rollback()
 
@@ -174,7 +174,11 @@ class DocumentIngestionService:
             failed_doc = await session.get(RAGDocument, doc_id)
             if failed_doc:
                 failed_doc.status = "failed"
-                failed_doc.error_msg = str(exc)[:500]
+                failed_doc.error_msg = (
+                    str(exc)[:500]
+                    if isinstance(exc, (DocParseError, EmbeddingError))
+                    else "Document processing failed. Please upload the document again."
+                )
                 await session.commit()
 
             return False

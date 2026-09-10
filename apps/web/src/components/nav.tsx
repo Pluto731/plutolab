@@ -1,62 +1,61 @@
-"use client";
+'use client'
 
-import { motion, useScroll, useTransform } from "framer-motion";
-import { Menu, Search, X } from "lucide-react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { motion, useScroll, useTransform } from 'framer-motion'
+import { Menu, Search, X } from 'lucide-react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
-import { ApiStatusDot } from "@/components/api-status-dot";
-import { useAuthUser } from "@/components/auth/use-auth";
-import { UserMenu } from "@/components/auth/user-menu";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { cn } from "@/lib/utils";
+import { ApiStatusDot } from '@/components/api-status-dot'
+import { useAuthUser } from '@/components/auth/use-auth'
+import { UserMenu } from '@/components/auth/user-menu'
+import { ThemeToggle } from '@/components/theme-toggle'
+import { cn } from '@/lib/utils'
 
 const FEATURE_ITEMS = [
-  { name: "笔记", href: "/notes" },
-  { name: "RAG", href: "/rag" },
-  { name: "评审", href: "/review" },
-  { name: "Agent", href: "/agents" },
-  { name: "画作", href: "/gallery" },
-];
+  { name: '笔记', href: '/notes' },
+  { name: 'RAG', href: '/rag' },
+  { name: '评审', href: '/review' },
+  { name: 'Agent', href: '/agents' },
+  { name: '画作', href: '/gallery' },
+]
 
 export function Nav() {
-  const pathname = usePathname();
-  const { user, logout } = useAuthUser();
-
-  // Sidebar 已接管所有应用页 (Phase 3.1.polish A.1)
-  // 顶部 Nav 仅在营销首页 `/` 显示, 保持 hero 全宽视觉
-  if (pathname !== "/") return null;
+  const pathname = usePathname()
+  const { user, logout } = useAuthUser()
 
   // 已登录时第一项变 "工作台 → /dashboard", 未登录时是 "首页 → /"
   // (避免登录后 nav 还把人引回 marketing 首页)
   const navItems = [
-    user ? { name: "工作台", href: "/dashboard" } : { name: "首页", href: "/" },
+    user ? { name: '工作台', href: '/dashboard' } : { name: '首页', href: '/' },
     ...FEATURE_ITEMS,
-  ];
+  ]
 
   // Logo 跟随登录态: 已登录的 home 是工作台
-  const logoHref = user ? "/dashboard" : "/";
-  const { scrollY } = useScroll();
+  const logoHref = user ? '/dashboard' : '/'
+  const { scrollY } = useScroll()
   // 滚动 > 80px 时背景渐显
-  const bgOpacity = useTransform(scrollY, [0, 80], [0, 1]);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [isMac, setIsMac] = useState(false);
+  const bgOpacity = useTransform(scrollY, [0, 80], [0, 1])
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const [isMac, setIsMac] = useState(false)
 
   useEffect(() => {
-    setIsMac(/Mac|iPhone|iPod|iPad/i.test(navigator.platform));
-  }, []);
+    setIsMac(/Mac|iPhone|iPod|iPad/i.test(navigator.platform))
+  }, [])
+
+  // Keep hook order stable when client navigation hides the marketing header.
+  if (pathname !== '/') return null
 
   // 触发命令面板 — dispatch keyboard event 给全局监听器 (CommandPalette 监听 cmd/ctrl+k)
   const openCommand = () => {
-    const evt = new KeyboardEvent("keydown", {
-      key: "k",
+    const evt = new KeyboardEvent('keydown', {
+      key: 'k',
       ctrlKey: !isMac,
       metaKey: isMac,
       bubbles: true,
-    });
-    document.dispatchEvent(evt);
-  };
+    })
+    document.dispatchEvent(evt)
+  }
 
   return (
     <motion.header className="fixed inset-x-0 top-0 z-40">
@@ -72,10 +71,7 @@ export function Nav() {
 
       <div className="relative flex h-16 items-center justify-between px-6 md:px-10 lg:px-16">
         {/* Logo (绝对位置 — 左) — 已登录指向工作台, 未登录指向首页 */}
-        <Link
-          href={logoHref}
-          className="group flex items-center gap-2 select-none"
-        >
+        <Link href={logoHref} className="group flex items-center gap-2 select-none">
           <span className="text-2xl transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110">
             🪐
           </span>
@@ -90,17 +86,16 @@ export function Nav() {
         {/* 主导航 (桌面) — 绝对居中, 不受 logo/控件宽度影响 */}
         <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 md:flex">
           {navItems.map((item) => {
-            const active =
-              item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+            const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "relative px-3 py-2 text-sm font-medium transition-colors",
+                  'relative px-3 py-2 text-sm font-medium transition-colors',
                   active
-                    ? "text-zinc-900 dark:text-zinc-100"
-                    : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100",
+                    ? 'text-zinc-900 dark:text-zinc-100'
+                    : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100',
                 )}
               >
                 {item.name}
@@ -108,11 +103,11 @@ export function Nav() {
                   <motion.div
                     layoutId="nav-active-pill"
                     className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500"
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                   />
                 )}
               </Link>
-            );
+            )
           })}
         </nav>
 
@@ -126,9 +121,7 @@ export function Nav() {
             aria-label="打开命令面板"
           >
             <Search className="size-4" />
-            <kbd className="font-mono text-xs">
-              {isMac ? "⌘K" : "Ctrl K"}
-            </kbd>
+            <kbd className="font-mono text-xs">{isMac ? '⌘K' : 'Ctrl K'}</kbd>
           </button>
           <ApiStatusDot />
           <ThemeToggle />
@@ -155,7 +148,7 @@ export function Nav() {
             type="button"
             onClick={() => setMobileOpen((v) => !v)}
             className="inline-flex size-10 items-center justify-center rounded-full border border-white/40 bg-white/30 text-zinc-700 backdrop-blur-xl transition-colors hover:bg-white/50 md:hidden dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-zinc-300 dark:hover:bg-white/[0.05]"
-            aria-label={mobileOpen ? "关闭菜单" : "打开菜单"}
+            aria-label={mobileOpen ? '关闭菜单' : '打开菜单'}
           >
             {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
@@ -176,25 +169,22 @@ export function Nav() {
                        dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]"
           >
             {navItems.map((item) => {
-              const active =
-                item.href === "/"
-                  ? pathname === "/"
-                  : pathname.startsWith(item.href);
+              const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
                   className={cn(
-                    "rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    'rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                     active
-                      ? "bg-gradient-to-r from-violet-500/20 to-fuchsia-500/20 text-zinc-900 dark:text-zinc-100"
-                      : "text-zinc-600 hover:bg-zinc-100/60 dark:text-zinc-400 dark:hover:bg-zinc-800/60",
+                      ? 'bg-gradient-to-r from-violet-500/20 to-fuchsia-500/20 text-zinc-900 dark:text-zinc-100'
+                      : 'text-zinc-600 hover:bg-zinc-100/60 dark:text-zinc-400 dark:hover:bg-zinc-800/60',
                   )}
                 >
                   {item.name}
                 </Link>
-              );
+              )
             })}
             <div className="my-1 h-px bg-zinc-200/70 dark:bg-white/10" />
             {user ? (
@@ -208,8 +198,8 @@ export function Nav() {
                 <button
                   type="button"
                   onClick={() => {
-                    setMobileOpen(false);
-                    logout();
+                    setMobileOpen(false)
+                    logout()
                   }}
                   className="rounded-lg px-3 py-2.5 text-left text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100/60 dark:text-zinc-300 dark:hover:bg-zinc-800/60"
                 >
@@ -238,5 +228,5 @@ export function Nav() {
         </motion.div>
       )}
     </motion.header>
-  );
+  )
 }

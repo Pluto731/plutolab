@@ -1,6 +1,6 @@
-"use client";
+'use client'
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   AlertCircle,
   BookOpen,
@@ -11,51 +11,52 @@ import {
   Loader2,
   StickyNote,
   Trash2,
-} from "lucide-react";
-import React, { useState } from "react";
+} from 'lucide-react'
+import React, { useState } from 'react'
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import type { DocumentFileType, DocumentPublic, DocumentStatus } from "@/lib/rag";
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { ErrorNotice } from '@/components/ui/error-notice'
+import type { DocumentFileType, DocumentPublic, DocumentStatus } from '@/lib/rag'
 
 interface DocumentTableProps {
-  documents: DocumentPublic[];
-  isLoading: boolean;
-  onDeleteDocument: (docId: string, filename: string) => Promise<void>;
-  onOpenImportModal?: () => void;
+  documents: DocumentPublic[]
+  isLoading: boolean
+  onDeleteDocument: (docId: string, filename: string) => Promise<void>
+  onOpenImportModal?: () => void
 }
 
 function formatRelativeTime(iso: string): string {
-  const now = Date.now();
-  const t = new Date(iso).getTime();
-  const min = Math.floor((now - t) / 60000);
-  if (min < 1) return "刚刚";
-  if (min < 60) return `${min} 分钟前`;
-  if (min < 1440) return `${Math.floor(min / 60)} 小时前`;
-  const d = Math.floor(min / 1440);
-  if (d < 30) return `${d} 天前`;
-  const date = new Date(iso);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const now = Date.now()
+  const t = new Date(iso).getTime()
+  const min = Math.floor((now - t) / 60000)
+  if (min < 1) return '刚刚'
+  if (min < 60) return `${min} 分钟前`
+  if (min < 1440) return `${Math.floor(min / 60)} 小时前`
+  const d = Math.floor(min / 1440)
+  if (d < 30) return `${d} 天前`
+  const date = new Date(iso)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
 function formatCharCount(chars: number): string {
-  if (chars >= 1_000_000) return `${(chars / 1_000_000).toFixed(1)}M`;
-  if (chars >= 1_000) return `${(chars / 1_000).toFixed(1)}k`;
-  return String(chars);
+  if (chars >= 1_000_000) return `${(chars / 1_000_000).toFixed(1)}M`
+  if (chars >= 1_000) return `${(chars / 1_000).toFixed(1)}k`
+  return String(chars)
 }
 
 function getFileTypeIcon(fileType: DocumentFileType) {
   switch (fileType) {
-    case "md":
-      return <FileCode className="size-4 text-purple-500" />;
-    case "pdf":
-      return <FileText className="size-4 text-red-500" />;
-    case "docx":
-      return <FileText className="size-4 text-blue-500" />;
-    case "note":
-      return <StickyNote className="size-4 text-amber-500" />;
+    case 'md':
+      return <FileCode className="size-4 text-purple-500" />
+    case 'pdf':
+      return <FileText className="size-4 text-red-500" />
+    case 'docx':
+      return <FileText className="size-4 text-blue-500" />
+    case 'note':
+      return <StickyNote className="size-4 text-amber-500" />
     default:
-      return <FileText className="size-4 text-zinc-500" />;
+      return <FileText className="size-4 text-zinc-500" />
   }
 }
 
@@ -63,43 +64,43 @@ function StatusBadge({
   status,
   errorMessage,
 }: {
-  status: DocumentStatus;
-  errorMessage?: string | null;
+  status: DocumentStatus
+  errorMessage?: string | null
 }) {
   switch (status) {
-    case "pending":
+    case 'pending':
       return (
         <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
           <Clock className="size-3" />
           <span>排队中</span>
         </span>
-      );
-    case "parsing":
+      )
+    case 'parsing':
       return (
         <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">
           <Loader2 className="size-3 animate-spin" />
           <span>解析向量化中</span>
         </span>
-      );
-    case "ready":
+      )
+    case 'ready':
       return (
         <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400">
           <CheckCircle2 className="size-3" />
           <span>已就绪</span>
         </span>
-      );
-    case "failed":
+      )
+    case 'failed':
       return (
         <span
-          title={errorMessage || "解析失败"}
+          title={errorMessage || '解析失败'}
           className="inline-flex cursor-help items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive dark:bg-destructive/20"
         >
           <AlertCircle className="size-3" />
           <span>解析失败</span>
         </span>
-      );
+      )
     default:
-      return null;
+      return null
   }
 }
 
@@ -109,31 +110,38 @@ export function DocumentTable({
   onDeleteDocument,
   onOpenImportModal,
 }: DocumentTableProps) {
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const handleDelete = async (doc: DocumentPublic) => {
-    if (window.confirm(`确定要删除文档「${doc.filename}」吗？\n该文档的所有切片和向量索引将被彻底移除。`)) {
+    if (
+      window.confirm(
+        `确定要删除文档「${doc.filename}」吗？\n该文档的所有切片和向量索引将被彻底移除。`,
+      )
+    ) {
       try {
-        setDeletingId(doc.id);
-        await onDeleteDocument(doc.id, doc.filename);
+        setDeletingId(doc.id)
+        setDeleteError(null)
+        await onDeleteDocument(doc.id, doc.filename)
+      } catch (error: unknown) {
+        setDeleteError(error instanceof Error ? error.message : '删除失败，请重试')
       } finally {
-        setDeletingId(null);
+        setDeletingId(null)
       }
     }
-  };
+  }
 
   const activeProcessingCount = documents.filter(
-    (d) => d.status === "pending" || d.status === "parsing"
-  ).length;
+    (d) => d.status === 'pending' || d.status === 'parsing',
+  ).length
 
   return (
     <div className="space-y-4">
+      <ErrorNotice message={deleteError} onDismiss={() => setDeleteError(null)} />
       {/* Section Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2.5">
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-            文档资料列表
-          </h2>
+          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">文档资料列表</h2>
           <Badge variant="secondary" className="text-xs font-normal">
             共 {documents.length} 篇
           </Badge>
@@ -175,7 +183,8 @@ export function DocumentTable({
               知识库暂无文档
             </h3>
             <p className="mt-1 max-w-sm text-xs text-zinc-500 dark:text-zinc-400">
-              可通过上方区域拖拽上传 PDF、Markdown、Word 文档，或从已有的 Markdown 笔记一键导入构建索引。
+              可通过上方区域拖拽上传 PDF、Markdown、Word 文档，或从已有的 Markdown
+              笔记一键导入构建索引。
             </p>
             {onOpenImportModal && (
               <Button
@@ -221,11 +230,17 @@ export function DocumentTable({
                             {getFileTypeIcon(doc.file_type)}
                           </div>
                           <div className="min-w-0 max-w-xs md:max-w-md">
-                            <p className="truncate font-medium text-zinc-900 dark:text-zinc-100" title={doc.filename}>
+                            <p
+                              className="truncate font-medium text-zinc-900 dark:text-zinc-100"
+                              title={doc.filename}
+                            >
                               {doc.filename}
                             </p>
                             {doc.error_msg && (
-                              <p className="truncate text-[11px] text-destructive" title={doc.error_msg}>
+                              <p
+                                className="truncate text-[11px] text-destructive"
+                                title={doc.error_msg}
+                              >
                                 错误: {doc.error_msg}
                               </p>
                             )}
@@ -235,7 +250,7 @@ export function DocumentTable({
 
                       {/* Source */}
                       <td className="px-4 py-3 whitespace-nowrap">
-                        {doc.source_type === "note" ? (
+                        {doc.source_type === 'note' ? (
                           <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">
                             <BookOpen className="size-3" />
                             笔记
@@ -250,12 +265,12 @@ export function DocumentTable({
 
                       {/* Chunk count */}
                       <td className="px-4 py-3 whitespace-nowrap text-zinc-600 dark:text-zinc-300 font-mono">
-                        {doc.status === "ready" ? `${doc.chunk_count} 个` : "-"}
+                        {doc.status === 'ready' ? `${doc.chunk_count} 个` : '-'}
                       </td>
 
                       {/* Char count */}
                       <td className="px-4 py-3 whitespace-nowrap text-zinc-600 dark:text-zinc-300 font-mono">
-                        {doc.status === "ready" ? `${formatCharCount(doc.char_count)} 字` : "-"}
+                        {doc.status === 'ready' ? `${formatCharCount(doc.char_count)} 字` : '-'}
                       </td>
 
                       {/* Status */}
@@ -264,7 +279,10 @@ export function DocumentTable({
                       </td>
 
                       {/* Time */}
-                      <td className="px-4 py-3 whitespace-nowrap text-zinc-400" title={doc.created_at}>
+                      <td
+                        className="px-4 py-3 whitespace-nowrap text-zinc-400"
+                        title={doc.created_at}
+                      >
                         {formatRelativeTime(doc.created_at)}
                       </td>
 
@@ -294,5 +312,5 @@ export function DocumentTable({
         )}
       </div>
     </div>
-  );
+  )
 }

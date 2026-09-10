@@ -1,5 +1,62 @@
 # 🪐 PlutoLab 新会话无缝接续交接备忘录 (Session Handover Memo)
 
+## 2026-09-10：VPS 分支协调合并（最新状态）
+
+- **目标**：合并当前 `f547a15` 与 VPS 的 `9c0bd55`，共同祖先 `d82b2bc`；在 `/tmp/plutolab-reconcile` 隔离 worktree 验证，原 checkout 的 Notes/Tasks/Copilot 改动不纳入提交。
+- **冲突决策**：保留 live UI（引用抽屉、导航、错误/空态与 reduced-motion）、限量读取上传、embedding 校验与 ingestion 边界；保留 Slice 1 key_ciphertext、512 token 预算及结构化错误，保留 Slice 2 96px 滚动跟随与间距。复用 live `rag-stream.ts` 并加入结构化 error 校验，后端错误同时输出 `finish_reason: error`，失败无 DONE。保留两侧回归测试并更新测试 transport/引用 fixture 适配严格解析。
+- **API 验证**（cwd=`apps/api`）：`PYTHONPATH=/tmp/plutolab-reconcile/apps/api/src /opt/homebrew/Caskroom/miniconda/base/envs/codex/bin/python -m pytest -q --junitxml=/tmp/reconcile-api.xml` → exit 0，322 tests，0 failures/errors/skips；日志 `/tmp/reconcile-api.4KlOKW`。此计数来自仅含待提交代码的 worktree，不包括原 checkout 未提交 Copilot 测试。
+- **Web 验证**（cwd=`apps/web`）：`node --test tests/rag.test.cjs tests/chat-scroll.test.cjs tests/rag-stream.test.mjs`、`pnpm exec tsc --noEmit`、`NEXT_TELEMETRY_DISABLED=1 pnpm build` 均 exit 0；日志 `/tmp/reconcile-web.kQJiVn`、`/tmp/reconcile-tsc.lcTYqe`、`/tmp/reconcile-build.3S5TkJ`。
+- **静态验证**：codex `-m ruff check --no-cache` 对 chat/embedder/ingestion、api/v1/rag 与 test_rag_correctness/test_embedder/test_ingestion/test_rag_stream_errors 均 exit 0（`/tmp/reconcile-ruff.1r5bfh`）；`git diff --cached --check` exit 0。无新增迁移或部署配置修改；全仓既有 lint 债务不在此次范围。
+- **授权部署计划**：提交 merge 并推送 `refactor/rag-ui-and-ingestion`，VPS fetch/checkout/pull --ff-only 后使用 production compose 和 `.env.prod`，仅 `up -d --build --no-deps web api`。验证非应用容器 ID/StartedAt 不变，检查 API 内网与公开 HTTP；不删除卷、不重启数据库。最终 deployed SHA/服务状态以本次交付卡为准；浏览器视觉验收由用户执行。
+
+## 2026-09-09：RAG 本地重构交接（本节优先于下方历史环境/部署记录）
+
+**状态：实现与回归验证完成；全仓 lint 门禁仍有基线债务，不能标记所有检查通过。**
+2026-09-09 用户已验收本地结果并授权本切片 commit/push 与 VPS Web/API 受控部署。下文“未提交/未部署”为本地验收时点记录；最终 SHA 与线上证据回填 Obsidian `开发日志/2026-09-09 Phase 4 RAG 本地边界修复与交互对齐实施日志.md`。40 项未修改文件中的旧 lint 违规按本次明确要求保留，不纳入当前切片。
+Worktree：`/Users/pluto/project/Pluto/plutolab-rag-refactor`；分支：`refactor/rag-ui-alignment-local`；基线：`d82b2bc`。修改未提交、未 push、未连接或部署 VPS。原 checkout 的 Notes/Tasks/Copilot 未提交工作保留。
+本次及后续 Python 命令仅使用 `/opt/homebrew/Caskroom/miniconda/base/envs/codex/bin/python`；下方历史 `gemini` 环境记录不适用于当前任务。
+
+### Plan → Implement：影响面与前后行为
+
+| 文件（相对本 worktree） | 改动前 → 改动后 |
+| --- | --- |
+| `apps/api/src/plutolab_api/services/embedder.py` | 非类型化 provider JSON、错误包含响应正文 → 独立 `_embed_remote`，严格验证 1536 维、有限数值、非零向量、数量和索引；远程失败不会切换 mock；异常保留 cause、公开消息去敏。 |
+| `apps/api/src/plutolab_api/services/ingestion.py` | 已有自主 session factory → 保留接口并核对文档 owner/KB；统一 logger，意外失败不写入原始异常；新增独立连接验证。 |
+| `apps/api/src/plutolab_api/api/v1/rag.py` | 应用层无界读取上传文件、embedding 异常未映射 → 最多读取 50MB + 1 byte，保持 413；检索 embedding 失败返回 502。Multipart 层仍有自身缓冲。 |
+| `apps/api/src/plutolab_api/services/chat.py` | async generator 外的无效 fallback 捕获、失败可能仍报告 stop/暴露异常 → 保留 keyless mock，远程生成/持久化失败发 `finish_reason=error`，日志只记录错误类型。SSE 字段形状不变。 |
+| `apps/web/src/lib/rag.ts`、新增 `rag-stream.ts`、`packages/types/src/rag.ts` | 手写解析静默接受截断、metadata any、文档字段错误 → 可测试 UTF-8/SSE reader、异常事件验证、unknown metadata、对齐 `error_msg/file_size`。 |
+| `apps/web/src/app/(site)/rag/[id]/chat/page.tsx` | 新会话缓存缺失、逐 token setState、旧流 finally 清除新控制器、完成气泡先清空 → 先写缓存再选择、按帧更新、控制器身份校验、读取已持久化消息后交接气泡；删除同步列表与 URL。 |
+| 同目录 `components/chat-messages.tsx`、`chat-input.tsx` | 强制平滑滚动、越界引用指向最后一条、IME Enter 误发送 → 尊重阅读位置/减少动画偏好、只打开有效引用、组合输入保护、语义 token、无文档入口与输入按钮标签。 |
+| 同目录 `components/citation-drawer.tsx`、`conversation-sidebar.tsx` | 自制引用遮罩、缺焦点/复制失败反馈、会话操作依赖 hover → 复用已有 Radix Dialog、焦点约束/Escape/恢复、引用导航、复制结果与失败提示；键盘选择会话、触屏操作、重命名错误反馈。 |
+| `apps/web/src/components/ui/error-notice.tsx`（新增） | 统一可访问 `role=alert` 错误卡片，复用 Button 与 destructive token。 |
+| `apps/web/src/components/nav.tsx` | 浏览器发现首页跳转应用页时 early return 越过 hooks，触发 Rendered fewer hooks → 将 pathname 隐藏判断移到 hooks 之后，保持调用顺序。 |
+| `apps/web/src/app/(site)/rag/page.tsx`、`[id]/page.tsx` | 独立颜色/间距、重复 deletingId、搜索空状态操作不匹配 → 语义颜色与成熟模块内容宽度、mutation 派生删除状态、清空筛选、请求错误提示。 |
+| `rag/[id]/components/document-table.tsx`、`document-upload-zone.tsx`、`import-notes-dialog.tsx`、`rag/components/create-kb-dialog.tsx` | 文档错误字段不匹配、20MB 文案、any catch → 实际错误可见、50MB 对齐、unknown narrowing、删除失败可恢复。 |
+| `apps/api/tests/test_embedder.py`、新增 `test_ingestion.py`、`test_rag_stream_errors.py` | provider 响应异常、独立 session 成功/失败事务、意外错误去敏、远程流失败回归。 |
+| `apps/web/tests/rag-stream.test.mjs`（新增）、`apps/web/package.json` | 增加无额外依赖的 Node 测试命令与 7 个 SSE 行为用例。 |
+
+`git diff` 可直接审核所有已有文件的 before/after；新文件需要单独打开，未进行提交或 staging。格式化仅限修改文件，未改锁文件、数据库 schema 或 Agentic retrieval 实现。
+
+### Verify：实际命令和结果
+
+- API cwd `apps/api`：`DATABASE_URL=postgresql+asyncpg://pluto:local_rag_test@127.0.0.1:55432/pluto /opt/homebrew/Caskroom/miniconda/base/envs/codex/bin/python -m pytest -q`：**305 passed, 1 warning, 37.73s**；基线 293 passed。warning 为原有错误签名 JWT 测试的短 HMAC key。
+- 根目录 `pnpm typecheck`：通过；`pnpm --filter @plutolab/web build`：通过，20 个页面生成完成。
+- `pnpm --filter @plutolab/web test`：**7 passed**。覆盖分段中文/emoji、CRLF、末尾无换行、提前 EOF、JSON/引用/delta 错误、provider error、reader 解锁。Node 提示 package 未声明 module 类型，测试正常完成。
+- codex `python -m ruff check` 和 `python -m ruff format --check` 对上表 7 个修改/新增 Python 文件：通过；Prettier 对全部修改/新增 TS/TSX/MJS/JSON：通过；`git diff --check`：通过。
+- **非通过门禁**：`pnpm lint` 仍调用 Next 16 已移除的 `next lint`，报 `Invalid project directory .../apps/web/lint`；全 API `python -m ruff check . --statistics` 剩余 **40** 项，全部位于本次未修改文件。未屏蔽规则、未大范围自动修复。
+- Playwright + 本地 `127.0.0.1:3100`、固定 API fixtures：桌面/390×844 深色引用抽屉、焦点约束、Escape 后焦点恢复、复制成功、无横向溢出通过；IME composition 不发送，503 错误及重试可见；首次提问只创建 1 个会话/发送 1 次请求，URL 正确，最终答案只显示 1 份。
+- 浏览器截图：`/tmp/plutolab-rag-mobile-citation.png`、`/tmp/plutolab-rag-desktop.png`。浏览器 fixture 验证交互；真实数据库行为由 PostgreSQL 集成测试验证，未声称付费 provider 或完整浏览器到真实 API 链路已验证。
+- 收尾发现并修复缓存已包含新会话时重复插入：按 id 去重，浏览器复验 1 行、0 duplicate-key warnings。首页经客户端链接进入 `/rag` 复验 0 uncaught errors。上述修复后再次通过 typecheck、7 个 SSE tests、production build 和修改文件格式检查。
+- 实测工具链：codex Python 3.11.16、Node 26.8.1、pnpm 11.2.2；Node 满足 engines >=22，但高于 `.nvmrc` 的 24。build 有既有 tracingRoot / Node deprecation 提示。
+
+### Handover：边界与下一切片
+
+本次测试数据库为独立本地容器 `plutolab-rag-refactor-db`，只绑定 `127.0.0.1:55432`，不使用原开发库；任务结束停止此容器及本次前端进程，保留容器以便 `docker start plutolab-rag-refactor-db` 复验，未删除数据卷或其他服务。
+
+后续可另立切片处理 Node 24/ESLint 工具链与持续浏览器回归（慢流切换、剪贴板拒绝、真实本地 API）；40 项基线规则违规本次保持原样。BackgroundTasks 仍不是持久化队列；mock 不是语义质量指标；非流式 chat 的历史 mock 实现仍保留。本次 Web/API 部署已获授权，其他生产变更不在授权范围。
+
+---
+
 > [!important] 新会话冷启动使用指南
 > 当你在 Antigravity 或 Claude Code 中开启一个**全新会话**时，只需在第一条消息直接发送：
 > 

@@ -1,47 +1,39 @@
-"use client";
+'use client'
 
-import { AnimatePresence, motion } from "framer-motion";
-import {
-  ArrowLeft,
-  BookOpen,
-  Check,
-  Edit2,
-  MessageSquare,
-  Plus,
-  Trash2,
-  X,
-} from "lucide-react";
-import Link from "next/link";
-import React, { useState } from "react";
+import { AnimatePresence, motion } from 'framer-motion'
+import { ArrowLeft, BookOpen, Check, Edit2, MessageSquare, Plus, Trash2, X } from 'lucide-react'
+import Link from 'next/link'
+import React, { useState } from 'react'
 
-import { Button } from "@/components/ui/button";
-import type { ConversationSummary, KnowledgeBasePublic } from "@/lib/rag";
+import { Button } from '@/components/ui/button'
+import { ErrorNotice } from '@/components/ui/error-notice'
+import type { ConversationSummary, KnowledgeBasePublic } from '@/lib/rag'
 
 interface ConversationSidebarProps {
-  kb: KnowledgeBasePublic;
-  conversations: ConversationSummary[];
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  onCreate: () => Promise<void>;
-  onRename: (id: string, newTitle: string) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
-  isCreating?: boolean;
-  className?: string;
-  isOpenMobile?: boolean;
-  onCloseMobile?: () => void;
+  kb: KnowledgeBasePublic
+  conversations: ConversationSummary[]
+  selectedId: string | null
+  onSelect: (id: string) => void
+  onCreate: () => void
+  onRename: (id: string, newTitle: string) => Promise<void>
+  onDelete: (id: string) => void
+  isCreating?: boolean
+  className?: string
+  isOpenMobile?: boolean
+  onCloseMobile?: () => void
 }
 
 function formatRelativeTime(iso: string): string {
-  const now = Date.now();
-  const t = new Date(iso).getTime();
-  const min = Math.floor((now - t) / 60000);
-  if (min < 1) return "刚刚";
-  if (min < 60) return `${min}m 前`;
-  if (min < 1440) return `${Math.floor(min / 60)}h 前`;
-  const d = Math.floor(min / 1440);
-  if (d < 30) return `${d}d 前`;
-  const date = new Date(iso);
-  return `${date.getMonth() + 1}/${date.getDate()}`;
+  const now = Date.now()
+  const t = new Date(iso).getTime()
+  const min = Math.floor((now - t) / 60000)
+  if (min < 1) return '刚刚'
+  if (min < 60) return `${min}m 前`
+  if (min < 1440) return `${Math.floor(min / 60)}h 前`
+  const d = Math.floor(min / 1440)
+  if (d < 30) return `${d}d 前`
+  const date = new Date(iso)
+  return `${date.getMonth() + 1}/${date.getDate()}`
 }
 
 export function ConversationSidebar({
@@ -53,50 +45,55 @@ export function ConversationSidebar({
   onRename,
   onDelete,
   isCreating = false,
-  className = "",
+  className = '',
   isOpenMobile = false,
   onCloseMobile,
 }: ConversationSidebarProps) {
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingTitle, setEditingTitle] = useState("");
-  const [isRenaming, setIsRenaming] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState('')
+  const [isRenaming, setIsRenaming] = useState(false)
+  const [renameError, setRenameError] = useState<string | null>(null)
 
   const startRename = (c: ConversationSummary, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditingId(c.id);
-    setEditingTitle(c.title);
-  };
+    e.stopPropagation()
+    setEditingId(c.id)
+    setEditingTitle(c.title)
+  }
 
   const cancelRename = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setEditingId(null);
-    setEditingTitle("");
-  };
+    e?.stopPropagation()
+    setEditingId(null)
+    setEditingTitle('')
+  }
 
   const saveRename = async (id: string, e?: React.FormEvent | React.MouseEvent) => {
-    e?.stopPropagation();
+    e?.stopPropagation()
     if (!editingTitle.trim()) {
-      cancelRename();
-      return;
+      cancelRename()
+      return
     }
     try {
-      setIsRenaming(true);
-      await onRename(id, editingTitle.trim());
-      setEditingId(null);
+      setIsRenaming(true)
+      setRenameError(null)
+      await onRename(id, editingTitle.trim())
+      setEditingId(null)
+    } catch (error: unknown) {
+      setRenameError(error instanceof Error ? error.message : '重命名失败，请重试')
     } finally {
-      setIsRenaming(false);
+      setIsRenaming(false)
     }
-  };
+  }
 
   const handleDelete = async (c: ConversationSummary, e: React.MouseEvent) => {
-    e.stopPropagation();
+    e.stopPropagation()
     if (window.confirm(`确定要删除会话「${c.title}」吗？\n该会话下的所有问答消息将被彻底清空。`)) {
-      await onDelete(c.id);
+      await onDelete(c.id)
     }
-  };
+  }
 
   const sidebarContent = (
     <div className="flex h-full flex-col">
+      <ErrorNotice message={renameError} onDismiss={() => setRenameError(null)} />
       {/* Top Header: Return to KB */}
       <div className="p-4 border-b border-zinc-200/70 dark:border-white/[0.08]">
         <Link
@@ -112,7 +109,10 @@ export function ConversationSidebar({
             {kb.icon || <BookOpen className="size-4" />}
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate" title={kb.title}>
+            <h2
+              className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate"
+              title={kb.title}
+            >
               {kb.title}
             </h2>
             <p className="text-[11px] text-zinc-400 truncate">
@@ -141,31 +141,48 @@ export function ConversationSidebar({
 
         {conversations.length === 0 ? (
           <div className="p-4 text-center text-xs text-zinc-400">
-            暂无历史对话<br />点击上方按钮开始
+            暂无历史对话
+            <br />
+            点击上方按钮开始
           </div>
         ) : (
           conversations.map((c) => {
-            const isSelected = selectedId === c.id;
-            const isEditing = editingId === c.id;
+            const isSelected = selectedId === c.id
+            const isEditing = editingId === c.id
 
             return (
               <div
                 key={c.id}
+                role="button"
+                tabIndex={isEditing ? -1 : 0}
+                aria-current={isSelected ? 'page' : undefined}
+                onKeyDown={(event) => {
+                  if (
+                    event.target === event.currentTarget &&
+                    (event.key === 'Enter' || event.key === ' ')
+                  ) {
+                    event.preventDefault()
+                    onSelect(c.id)
+                    onCloseMobile?.()
+                  }
+                }}
                 onClick={() => {
                   if (!isEditing) {
-                    onSelect(c.id);
-                    onCloseMobile?.();
+                    onSelect(c.id)
+                    onCloseMobile?.()
                   }
                 }}
                 className={`group relative flex items-center justify-between rounded-xl px-3 py-2.5 text-xs transition-all cursor-pointer ${
                   isSelected
-                    ? "bg-primary/10 text-primary font-semibold shadow-xs ring-1 ring-primary/20 dark:bg-primary/15"
-                    : "text-zinc-600 hover:bg-zinc-100/80 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/50 dark:hover:text-zinc-200"
+                    ? 'bg-primary/10 text-primary font-semibold shadow-xs ring-1 ring-primary/20 dark:bg-primary/15'
+                    : 'text-zinc-600 hover:bg-zinc-100/80 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/50 dark:hover:text-zinc-200'
                 }`}
               >
                 {/* Left side: Icon + Title or Inline Editor */}
                 <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
-                  <MessageSquare className={`size-4 shrink-0 ${isSelected ? "text-primary" : "text-zinc-400"}`} />
+                  <MessageSquare
+                    className={`size-4 shrink-0 ${isSelected ? 'text-primary' : 'text-zinc-400'}`}
+                  />
 
                   {isEditing ? (
                     <div
@@ -177,8 +194,8 @@ export function ConversationSidebar({
                         value={editingTitle}
                         onChange={(e) => setEditingTitle(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter") saveRename(c.id, e);
-                          if (e.key === "Escape") cancelRename();
+                          if (e.key === 'Enter') saveRename(c.id, e)
+                          if (e.key === 'Escape') cancelRename()
                         }}
                         autoFocus
                         disabled={isRenaming}
@@ -213,7 +230,7 @@ export function ConversationSidebar({
                 {!isEditing && (
                   <div className="flex items-center gap-1 shrink-0">
                     {/* Hover action buttons */}
-                    <div className="hidden group-hover:flex items-center gap-0.5">
+                    <div className="flex md:invisible md:group-hover:visible md:group-focus-within:visible items-center gap-0.5">
                       <button
                         onClick={(e) => startRename(c, e)}
                         className="rounded p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
@@ -237,12 +254,12 @@ export function ConversationSidebar({
                   </div>
                 )}
               </div>
-            );
+            )
           })
         )}
       </div>
     </div>
-  );
+  )
 
   return (
     <>
@@ -265,10 +282,10 @@ export function ConversationSidebar({
               className="absolute inset-0 bg-black/40 backdrop-blur-xs"
             />
             <motion.div
-              initial={{ x: "-100%" }}
+              initial={{ x: '-100%' }}
               animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 250 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 250 }}
               className="relative flex flex-col w-80 max-w-[85vw] bg-white dark:bg-zinc-950 shadow-2xl z-10"
             >
               <div className="absolute right-3 top-3">
@@ -287,5 +304,5 @@ export function ConversationSidebar({
         )}
       </AnimatePresence>
     </>
-  );
+  )
 }

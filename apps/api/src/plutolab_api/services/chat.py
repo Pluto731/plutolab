@@ -16,11 +16,11 @@ from typing import Literal
 from uuid import UUID
 
 import httpx
-import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from plutolab_api.core.crypto import decrypt
+from plutolab_api.core.logging import get_logger
 from plutolab_api.models.rag import RAGConversation, RAGMessage
 from plutolab_api.models.user_api_key import UserApiKey
 from plutolab_api.schemas.rag import (
@@ -39,7 +39,7 @@ from plutolab_api.services.query_router import (
 )
 from plutolab_api.services.retriever import HybridRetriever, SearchMode
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 SYSTEM_PROMPT_TEMPLATE = """你是一个严谨专业的智能知识库问答助手。
 请根据以下提供的参考文档片段回答用户问题。
@@ -396,6 +396,7 @@ class RAGChatService:
                 "persistence_failed": "The answer could not be saved. Please retry.",
             }
             event = ChatStreamChunk(
+                finish_reason="error",
                 error=ChatStreamError(code=error_code, message=messages[error_code])
             )
             yield f"data: {event.model_dump_json()}\n\n"

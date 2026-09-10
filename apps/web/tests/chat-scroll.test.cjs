@@ -43,7 +43,7 @@ function harness() {
         const jsx = (type, props) => ({ type, props })
         return { jsx, jsxs: jsx }
       }
-      if (id === 'framer-motion') return { motion: { div: 'div' } }
+      if (id === 'framer-motion') return { motion: { div: 'div' }, useReducedMotion: () => false }
       return new Proxy({}, { get: (_, name) => name })
     },
   }

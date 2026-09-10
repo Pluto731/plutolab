@@ -10,6 +10,8 @@
  * - Browser-native SSE typewriter streaming with Citation event extraction
  */
 
+import { readRAGStream } from './rag-stream'
+
 import { API_URL } from '@/lib/api'
 import { getAccessToken } from '@/lib/auth'
 
@@ -31,7 +33,7 @@ export interface CitationItem {
   chunk_index: number
   content: string
   similarity: number
-  metadata: Record<string, any>
+  metadata: Record<string, unknown>
 }
 
 export interface SearchResultItem {
@@ -42,7 +44,7 @@ export interface SearchResultItem {
   content: string
   score: number
   retrieval_source: RetrievalSource
-  metadata: Record<string, any>
+  metadata: Record<string, unknown>
 }
 
 export interface SearchRequest {
@@ -109,7 +111,7 @@ export interface DocumentPublic {
   chunk_count: number
   status: DocumentStatus
   error_msg: string | null
-  metadata: Record<string, any>
+  file_size: number
   created_at: string
   updated_at: string
 }
@@ -166,8 +168,8 @@ export interface ConversationSummary {
 export interface ChatStreamChunk {
   delta?: string
   citation?: CitationItem | null
-  finish_reason?: string | null
   error?: { code: string; message: string } | null
+  finish_reason?: string | null
 }
 
 export interface StreamCallbacks {
@@ -412,8 +414,6 @@ export async function streamRAGMessage(
   callbacks: StreamCallbacks,
   signal?: AbortSignal,
 ): Promise<void> {
-  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined
-
   try {
     const res = await fetch(`${API_URL}/api/v1/rag/conversations/${conversationId}/messages`, {
       method: 'POST',
@@ -422,56 +422,15 @@ export async function streamRAGMessage(
       signal,
     })
     if (!res.ok) {
-      const errorData = await res.json().catch(() => null)
-      throw new Error(detailMessage(errorData, `HTTP ${res.status}: ${res.statusText}`))
+      const data: unknown = await res.json().catch(() => null)
+      throw new Error(detailMessage(data, `发送失败 (${res.status})`))
     }
-    if (!res.body) throw new Error('Response body is null or streaming unsupported')
-
-    reader = res.body.getReader()
-    const decoder = new TextDecoder('utf-8')
-    let buffer = ''
-
-    const consumeLine = (line: string): boolean => {
-      const trimmed = line.trim()
-      if (!trimmed.startsWith('data:')) return false
-      const data = trimmed.slice(5).trim()
-      if (data === '[DONE]') return true
-
-      const chunk = JSON.parse(data) as ChatStreamChunk
-      if (chunk.error) throw new Error(chunk.error.message || 'Answer generation failed')
-      if (chunk.finish_reason && chunk.finish_reason !== 'stop') {
-        throw new Error('Answer generation did not complete successfully')
-      }
-      if (chunk.citation) callbacks.onCitation?.(chunk.citation)
-      if (chunk.delta) callbacks.onDelta?.(chunk.delta)
-      return false
-    }
-
-    while (true) {
-      const { done, value } = await reader.read()
-      buffer += done ? decoder.decode() : decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
-      for (const line of lines) {
-        if (consumeLine(line)) {
-          callbacks.onDone?.()
-          return
-        }
-      }
-      if (done) {
-        if (buffer && consumeLine(buffer)) {
-          callbacks.onDone?.()
-          return
-        }
-        throw new Error('Answer stream ended unexpectedly before completion. Please retry.')
-      }
-    }
+    if (!res.body) throw new Error('浏览器无法读取回答，请重试')
+    await readRAGStream(res.body, callbacks)
   } catch (error: unknown) {
     if (signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) return
-    const streamError = error instanceof Error ? error : new Error(String(error))
-    callbacks.onError?.(streamError)
-    throw streamError
-  } finally {
-    reader?.releaseLock()
+    const failure = error instanceof Error ? error : new Error('回答生成失败，请重试')
+    callbacks.onError?.(failure)
+    throw failure
   }
 }

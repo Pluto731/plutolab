@@ -1,7 +1,7 @@
-"use client";
+'use client'
 
-import { useQuery } from "@tanstack/react-query";
-import { AnimatePresence, motion } from "framer-motion";
+import { useQuery } from '@tanstack/react-query'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   AlertCircle,
   BookOpen,
@@ -14,34 +14,34 @@ import {
   Square,
   Tag,
   X,
-} from "lucide-react";
-import React, { useMemo, useState } from "react";
+} from 'lucide-react'
+import React, { useMemo, useState } from 'react'
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { listNotes, type NoteSummary } from "@/lib/notes";
-import { importNotesToKnowledgeBase, type DocumentPublic } from "@/lib/rag";
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { listNotes, type NoteSummary } from '@/lib/notes'
+import { importNotesToKnowledgeBase, type DocumentPublic } from '@/lib/rag'
 
 interface ImportNotesDialogProps {
-  open: boolean;
-  onClose: () => void;
-  kbId: string;
-  existingDocuments: DocumentPublic[];
-  onImportSuccess?: () => void;
+  open: boolean
+  onClose: () => void
+  kbId: string
+  existingDocuments: DocumentPublic[]
+  onImportSuccess?: () => void
 }
 
 function formatRelativeTime(iso: string): string {
-  const now = Date.now();
-  const t = new Date(iso).getTime();
-  const min = Math.floor((now - t) / 60000);
-  if (min < 1) return "刚刚";
-  if (min < 60) return `${min} 分钟前`;
-  if (min < 1440) return `${Math.floor(min / 60)} 小时前`;
-  const d = Math.floor(min / 1440);
-  if (d < 30) return `${d} 天前`;
-  const date = new Date(iso);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const now = Date.now()
+  const t = new Date(iso).getTime()
+  const min = Math.floor((now - t) / 60000)
+  if (min < 1) return '刚刚'
+  if (min < 60) return `${min} 分钟前`
+  if (min < 1440) return `${Math.floor(min / 60)} 小时前`
+  const d = Math.floor(min / 1440)
+  if (d < 30) return `${d} 天前`
+  const date = new Date(iso)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
 export function ImportNotesDialog({
@@ -51,106 +51,106 @@ export function ImportNotesDialog({
   existingDocuments,
   onImportSuccess,
 }: ImportNotesDialogProps) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [isImporting, setIsImporting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedTag, setSelectedTag] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [isImporting, setIsImporting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   // Fetch all user notes
   const { data: notes = [], isLoading } = useQuery<NoteSummary[]>({
-    queryKey: ["notes"],
+    queryKey: ['notes'],
     queryFn: () => listNotes(),
     enabled: open,
     staleTime: 30 * 1000,
-  });
+  })
 
   // Collect notes already imported in this KB
   const importedNoteIdSet = useMemo(() => {
-    const set = new Set<string>();
+    const set = new Set<string>()
     for (const doc of existingDocuments) {
       if (doc.source_note_id) {
-        set.add(doc.source_note_id);
+        set.add(doc.source_note_id)
       }
     }
-    return set;
-  }, [existingDocuments]);
+    return set
+  }, [existingDocuments])
 
   // Extract all distinct tags
   const allTags = useMemo(() => {
-    const tagSet = new Set<string>();
+    const tagSet = new Set<string>()
     for (const note of notes) {
       for (const t of note.tags || []) {
-        tagSet.add(t);
+        tagSet.add(t)
       }
     }
-    return Array.from(tagSet).sort();
-  }, [notes]);
+    return Array.from(tagSet).sort()
+  }, [notes])
 
   // Filter notes based on search query and selected tag
   const filteredNotes = useMemo(() => {
-    let result = notes;
+    let result = notes
     if (selectedTag) {
-      result = result.filter((n) => n.tags?.includes(selectedTag));
+      result = result.filter((n) => n.tags?.includes(selectedTag))
     }
-    const q = searchQuery.trim().toLowerCase();
+    const q = searchQuery.trim().toLowerCase()
     if (q) {
       result = result.filter(
         (n) =>
           n.title.toLowerCase().includes(q) ||
           (n.excerpt && n.excerpt.toLowerCase().includes(q)) ||
-          n.tags?.some((t) => t.toLowerCase().includes(q))
-      );
+          n.tags?.some((t) => t.toLowerCase().includes(q)),
+      )
     }
-    return result;
-  }, [notes, selectedTag, searchQuery]);
+    return result
+  }, [notes, selectedTag, searchQuery])
 
   // Selectable notes in current filtered list (exclude already imported)
   const selectableNotes = useMemo(() => {
-    return filteredNotes.filter((n) => !importedNoteIdSet.has(n.id));
-  }, [filteredNotes, importedNoteIdSet]);
+    return filteredNotes.filter((n) => !importedNoteIdSet.has(n.id))
+  }, [filteredNotes, importedNoteIdSet])
 
   const toggleSelect = (id: string) => {
-    if (importedNoteIdSet.has(id)) return;
+    if (importedNoteIdSet.has(id)) return
     setSelectedIds((prev) => {
-      const next = new Set(prev);
+      const next = new Set(prev)
       if (next.has(id)) {
-        next.delete(id);
+        next.delete(id)
       } else {
-        next.add(id);
+        next.add(id)
       }
-      return next;
-    });
-  };
+      return next
+    })
+  }
 
   const handleSelectAll = () => {
-    const next = new Set(selectedIds);
+    const next = new Set(selectedIds)
     for (const note of selectableNotes) {
-      next.add(note.id);
+      next.add(note.id)
     }
-    setSelectedIds(next);
-  };
+    setSelectedIds(next)
+  }
 
   const handleClearSelection = () => {
-    setSelectedIds(new Set());
-  };
+    setSelectedIds(new Set())
+  }
 
   const handleConfirmImport = async () => {
-    if (selectedIds.size === 0) return;
+    if (selectedIds.size === 0) return
 
     try {
-      setIsImporting(true);
-      setErrorMessage(null);
-      await importNotesToKnowledgeBase(kbId, Array.from(selectedIds));
-      setSelectedIds(new Set());
-      onImportSuccess?.();
-      onClose();
-    } catch (err: any) {
-      setErrorMessage(err?.message || "导入笔记失败，请重试");
+      setIsImporting(true)
+      setErrorMessage(null)
+      await importNotesToKnowledgeBase(kbId, Array.from(selectedIds))
+      setSelectedIds(new Set())
+      onImportSuccess?.()
+      onClose()
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : '导入笔记失败，请重试')
     } finally {
-      setIsImporting(false);
+      setIsImporting(false)
     }
-  };
+  }
 
   return (
     <AnimatePresence>
@@ -170,7 +170,7 @@ export function ImportNotesDialog({
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
-            transition={{ type: "spring", duration: 0.25 }}
+            transition={{ type: 'spring', duration: 0.25 }}
             className="relative flex flex-col w-full max-w-2xl max-h-[85vh] overflow-hidden rounded-2xl border border-zinc-200/80 bg-white/95 p-6 shadow-2xl backdrop-blur-2xl dark:border-white/[0.1] dark:bg-zinc-950/95"
           >
             {/* Header */}
@@ -218,7 +218,7 @@ export function ImportNotesDialog({
                 />
                 {searchQuery && (
                   <button
-                    onClick={() => setSearchQuery("")}
+                    onClick={() => setSearchQuery('')}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
                   >
                     <X className="size-3.5" />
@@ -233,8 +233,8 @@ export function ImportNotesDialog({
                     onClick={() => setSelectedTag(null)}
                     className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${
                       selectedTag === null
-                        ? "bg-primary text-white"
-                        : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                        ? 'bg-primary text-white'
+                        : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
                     }`}
                   >
                     全部标签
@@ -245,8 +245,8 @@ export function ImportNotesDialog({
                       onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
                       className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${
                         selectedTag === tag
-                          ? "bg-primary text-white"
-                          : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                          ? 'bg-primary text-white'
+                          : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
                       }`}
                     >
                       <Tag className="size-2.5" />
@@ -260,7 +260,11 @@ export function ImportNotesDialog({
             {/* Selection Quick Actions */}
             <div className="mt-3 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 px-1">
               <span>
-                匹配到 <span className="font-semibold text-zinc-800 dark:text-zinc-200">{filteredNotes.length}</span> 篇笔记
+                匹配到{' '}
+                <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                  {filteredNotes.length}
+                </span>{' '}
+                篇笔记
                 {selectableNotes.length < filteredNotes.length && (
                   <span className="text-zinc-400 ml-1">
                     ({filteredNotes.length - selectableNotes.length} 篇已在此库中)
@@ -302,13 +306,13 @@ export function ImportNotesDialog({
               ) : filteredNotes.length === 0 ? (
                 <div className="py-12 px-4 text-center text-xs text-zinc-400">
                   {searchQuery || selectedTag
-                    ? "未找到符合筛选条件的笔记"
-                    : "您尚未创建任何 Markdown 笔记"}
+                    ? '未找到符合筛选条件的笔记'
+                    : '您尚未创建任何 Markdown 笔记'}
                 </div>
               ) : (
                 filteredNotes.map((note) => {
-                  const isAlreadyImported = importedNoteIdSet.has(note.id);
-                  const isSelected = selectedIds.has(note.id);
+                  const isAlreadyImported = importedNoteIdSet.has(note.id)
+                  const isSelected = selectedIds.has(note.id)
 
                   return (
                     <div
@@ -316,10 +320,10 @@ export function ImportNotesDialog({
                       onClick={() => toggleSelect(note.id)}
                       className={`flex items-start gap-3 p-3 text-xs transition-colors ${
                         isAlreadyImported
-                          ? "opacity-50 cursor-not-allowed bg-zinc-50/40 dark:bg-zinc-900/40"
+                          ? 'opacity-50 cursor-not-allowed bg-zinc-50/40 dark:bg-zinc-900/40'
                           : isSelected
-                          ? "bg-primary/5 dark:bg-primary/10 cursor-pointer hover:bg-primary/10"
-                          : "hover:bg-zinc-50 cursor-pointer dark:hover:bg-zinc-800/30"
+                            ? 'bg-primary/5 dark:bg-primary/10 cursor-pointer hover:bg-primary/10'
+                            : 'hover:bg-zinc-50 cursor-pointer dark:hover:bg-zinc-800/30'
                       }`}
                     >
                       {/* Checkbox Icon */}
@@ -377,16 +381,14 @@ export function ImportNotesDialog({
                                     #{t}
                                   </span>
                                 ))}
-                                {note.tags.length > 3 && (
-                                  <span>+{note.tags.length - 3}</span>
-                                )}
+                                {note.tags.length > 3 && <span>+{note.tags.length - 3}</span>}
                               </div>
                             </>
                           )}
                         </div>
                       </div>
                     </div>
-                  );
+                  )
                 })
               )}
             </div>
@@ -427,5 +429,5 @@ export function ImportNotesDialog({
         </div>
       )}
     </AnimatePresence>
-  );
+  )
 }
