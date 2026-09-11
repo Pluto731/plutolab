@@ -106,7 +106,10 @@ class RecursiveSplitter:
         if count_tokens(stripped) <= self.chunk_size:
             return [stripped]
 
-        return self._split_text(stripped, self.separators)
+        chunks = self._split_text(stripped, self.separators)
+        if any(count_tokens(chunk) > self.chunk_size for chunk in chunks):
+            raise ValueError("A chunk exceeds the configured token budget")
+        return chunks
 
     def split_document(self, parsed_doc: ParsedDocument) -> list[DocumentChunk]:
         """Split a `ParsedDocument` into indexed `DocumentChunk` items with page & offset metadata."""
@@ -227,28 +230,24 @@ class RecursiveSplitter:
         """Greedily combine small text pieces into chunks with sliding overlap."""
         chunks: list[str] = []
         current_doc: list[str] = []
-        total_tokens = 0
-
-        sep_tokens = count_tokens(separator) if separator else 0
-
         for piece in splits:
-            piece_tokens = count_tokens(piece)
+            if (
+                current_doc
+                and count_tokens(separator.join([*current_doc, piece])) > self.chunk_size
+            ):
+                doc_str = separator.join(current_doc)
+                if doc_str.strip():
+                    chunks.append(doc_str)
 
-            if total_tokens + piece_tokens + (sep_tokens if current_doc else 0) > self.chunk_size:
-                if current_doc:
-                    doc_str = separator.join(current_doc)
-                    if doc_str.strip():
-                        chunks.append(doc_str)
-
-                    # Calculate overlap: keep pieces from tail of current_doc up to chunk_overlap
-                    while total_tokens > self.chunk_overlap and current_doc:
-                        removed = current_doc.pop(0)
-                        total_tokens -= count_tokens(removed) + (sep_tokens if current_doc else 0)
-
-                    total_tokens = max(0, total_tokens)
+                # Tokenization is not additive across boundaries. Validate the
+                # retained overlap together with the incoming piece.
+                while current_doc and (
+                    count_tokens(separator.join(current_doc)) > self.chunk_overlap
+                    or count_tokens(separator.join([*current_doc, piece])) > self.chunk_size
+                ):
+                    current_doc.pop(0)
 
             current_doc.append(piece)
-            total_tokens += piece_tokens + (sep_tokens if len(current_doc) > 1 else 0)
 
         if current_doc:
             doc_str = separator.join(current_doc)
@@ -270,7 +269,7 @@ class RecursiveSplitter:
             # Binary search character cut point that fits within chunk_size tokens
             low = 1
             high = len(remaining)
-            best_idx = 1
+            best_idx = 0
 
             while low <= high:
                 mid = (low + high) // 2
@@ -281,6 +280,8 @@ class RecursiveSplitter:
                 else:
                     high = mid - 1
 
+            if best_idx == 0:
+                raise ValueError("Token budget cannot fit a single character")
             slices.append(remaining[:best_idx])
             # Step forward accounting for overlap characters
             step = max(1, best_idx - int(best_idx * (self.chunk_overlap / self.chunk_size)))

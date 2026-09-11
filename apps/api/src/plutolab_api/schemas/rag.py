@@ -243,12 +243,20 @@ class ConversationSummary(BaseModel):
 # --- Streaming & Agentic RAG Schemas ---
 
 
+class ChatStreamError(BaseModel):
+    """Terminal stream failure; messages are safe to display to the user."""
+
+    code: Literal["preparation_failed", "generation_failed", "persistence_failed"]
+    message: str
+
+
 class ChatStreamChunk(BaseModel):
     """SSE streaming data chunk payload."""
 
     delta: str = ""
     citation: CitationItem | None = None
     finish_reason: str | None = None
+    error: ChatStreamError | None = None
 
 
 class ChatQueryRewrite(BaseModel):

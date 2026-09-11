@@ -9,18 +9,18 @@ Features:
 import hashlib
 import math
 import random
-from typing import Any
 from uuid import UUID
 
 import httpx
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-import structlog
 
 from plutolab_api.core.crypto import decrypt
+from plutolab_api.core.logging import get_logger
 from plutolab_api.models.user_api_key import UserApiKey
 
-logger = structlog.get_logger(__name__)
+logger = get_logger(__name__)
 
 EMBEDDING_DIM = 1536
 DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
@@ -33,6 +33,17 @@ class EmbeddingError(Exception):
     def __init__(self, message: str, original_error: Exception | None = None) -> None:
         super().__init__(message)
         self.original_error = original_error
+
+
+class _EmbeddingItem(BaseModel):
+    model_config = ConfigDict(strict=True, allow_inf_nan=False)
+
+    index: int = Field(ge=0)
+    embedding: list[float] = Field(min_length=EMBEDDING_DIM, max_length=EMBEDDING_DIM)
+
+
+class _EmbeddingResponse(BaseModel):
+    data: list[_EmbeddingItem]
 
 
 def generate_mock_vector(text: str, dim: int = EMBEDDING_DIM) -> list[float]:
@@ -80,7 +91,6 @@ class EmbeddingService:
         try:
             return decrypt(record.key_ciphertext)
         except Exception as exc:
-            logger.error("failed_to_decrypt_user_api_key", user_id=str(user_id), error=str(exc))
             raise EmbeddingError("Failed to decrypt stored OpenAI API key.", exc) from exc
 
     async def embed_texts(
@@ -106,6 +116,9 @@ class EmbeddingService:
         if not texts:
             return []
 
+        if batch_size < 1:
+            raise EmbeddingError("Embedding batch size must be positive.")
+
         # If no API key provided, evaluate mock fallback
         if not api_key:
             if mock_fallback:
@@ -115,6 +128,13 @@ class EmbeddingService:
                 "OpenAI API key is required but not provided or configured in user settings."
             )
 
+        # Provider failures must never switch an existing corpus to mock vectors.
+        return await self._embed_remote(texts, api_key, model, batch_size)
+
+    async def _embed_remote(
+        self, texts: list[str], api_key: str, model: str, batch_size: int
+    ) -> list[list[float]]:
+        """Generate and validate provider vectors without a mock fallback path."""
         embeddings: list[list[float]] = []
         client_provided = self._http_client is not None
         client = self._http_client or httpx.AsyncClient(timeout=30.0)
@@ -142,7 +162,7 @@ class EmbeddingService:
                     ) from exc
                 except httpx.RequestError as exc:
                     raise EmbeddingError(
-                        f"Network error while calling OpenAI embeddings: {exc}", exc
+                        "Network error while calling OpenAI embeddings. Please try again.", exc
                     ) from exc
 
                 if resp.status_code == 401:
@@ -153,13 +173,23 @@ class EmbeddingService:
                     )
                 elif resp.status_code != 200:
                     raise EmbeddingError(
-                        f"OpenAI API returned error status {resp.status_code}: {resp.text}"
+                        f"OpenAI API returned error status {resp.status_code}. Please try again."
                     )
 
-                data = resp.json()
-                sorted_data = sorted(data.get("data", []), key=lambda x: x.get("index", 0))
-                for item in sorted_data:
-                    embeddings.append(item["embedding"])
+                try:
+                    data = _EmbeddingResponse.model_validate_json(resp.content)
+                except ValidationError as exc:
+                    raise EmbeddingError(
+                        "OpenAI returned an invalid embedding response.", exc
+                    ) from exc
+                sorted_data = sorted(data.data, key=lambda item: item.index)
+                if [item.index for item in sorted_data] != list(range(len(batch))):
+                    raise EmbeddingError(
+                        "OpenAI returned an incomplete or duplicate embedding batch."
+                    )
+                if any(not any(item.embedding) for item in sorted_data):
+                    raise EmbeddingError("OpenAI returned a zero embedding vector.")
+                embeddings.extend(item.embedding for item in sorted_data)
 
         finally:
             if not client_provided:
@@ -183,5 +213,5 @@ class EmbeddingService:
             mock_fallback=mock_fallback,
         )
         if not results:
-            return generate_mock_vector(query)
+            raise EmbeddingError("No embedding was returned for the query.")
         return results[0]

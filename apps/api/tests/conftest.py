@@ -11,20 +11,27 @@ import fakeredis.aioredis
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
-import plutolab_api.models.link  # noqa: F401  (register on Base.metadata)
-import plutolab_api.models.note  # noqa: F401  (register on Base.metadata)
-import plutolab_api.models.pomodoro  # noqa: F401  (register on Base.metadata)
-import plutolab_api.models.task  # noqa: F401  (register on Base.metadata)
+import plutolab_api.models.link  # register on Base.metadata
+import plutolab_api.models.note  # register on Base.metadata
+import plutolab_api.models.pomodoro  # register on Base.metadata
+import plutolab_api.models.task  # register on Base.metadata
 import plutolab_api.models.user  # (register on Base.metadata; referenced elsewhere)
-import plutolab_api.models.user_api_key  # noqa: F401  (register on Base.metadata)
+import plutolab_api.models.user_api_key  # noqa: F401 (register on Base.metadata)
 from plutolab_api.api.deps import get_db
+from plutolab_api.api.v1.rag import get_ingestion_service
 from plutolab_api.core.config import settings
 from plutolab_api.core.email import Mailer, get_mailer
 from plutolab_api.core.redis import get_redis
 from plutolab_api.db.base import Base
 from plutolab_api.main import app
+from plutolab_api.services.ingestion import DocumentIngestionService
 
 TEST_DB_NAME = "pluto_test"
 
@@ -146,6 +153,16 @@ async def client(
         yield db_session
 
     app.dependency_overrides[get_db] = _override_get_db
+    ingestion_session_factory = async_sessionmaker(
+        bind=db_session.bind,
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autoflush=False,
+        join_transaction_mode="create_savepoint",
+    )
+    app.dependency_overrides[get_ingestion_service] = lambda: DocumentIngestionService(
+        session_factory=ingestion_session_factory,
+    )
     app.dependency_overrides[get_redis] = lambda: fake_redis
     app.dependency_overrides[get_mailer] = lambda: fake_mailer
     transport = ASGITransport(app=app)

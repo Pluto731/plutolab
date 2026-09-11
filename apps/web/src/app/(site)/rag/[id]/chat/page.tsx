@@ -1,13 +1,14 @@
-"use client";
+'use client'
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2 } from "lucide-react";
-import Link from "next/link";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
-import React, { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft, Loader2 } from 'lucide-react'
+import Link from 'next/link'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import React, { useEffect, useRef, useState } from 'react'
 
-import { useAuthUser } from "@/components/auth/use-auth";
-import { Button } from "@/components/ui/button";
+import { useAuthUser } from '@/components/auth/use-auth'
+import { Button } from '@/components/ui/button'
+import { ErrorNotice } from '@/components/ui/error-notice'
 import {
   createConversation,
   deleteConversation,
@@ -21,62 +22,65 @@ import {
   type ConversationSummary,
   type KnowledgeBasePublic,
   type MessagePublic,
-} from "@/lib/rag";
+} from '@/lib/rag'
 
-import { ChatHeader } from "./components/chat-header";
-import { ChatInput } from "./components/chat-input";
-import { ChatMessages } from "./components/chat-messages";
-import { CitationDrawer } from "./components/citation-drawer";
-import { ConversationSidebar } from "./components/conversation-sidebar";
+import { ChatHeader } from './components/chat-header'
+import { ChatInput } from './components/chat-input'
+import { ChatMessages } from './components/chat-messages'
+import { CitationDrawer } from './components/citation-drawer'
+import { ConversationSidebar } from './components/conversation-sidebar'
 
 export default function RAGChatPage() {
-  const router = useRouter();
-  const params = useParams();
-  const searchParams = useSearchParams();
-  const kbId = (params?.id as string) || "";
-  const queryConversationId = searchParams.get("c");
+  const router = useRouter()
+  const params = useParams<{ id: string }>()
+  const searchParams = useSearchParams()
+  const kbId = params.id
+  const queryConversationId = searchParams.get('c')
 
-  const queryClient = useQueryClient();
-  const { user, loading: authLoading, mounted } = useAuthUser();
+  const queryClient = useQueryClient()
+  const { user, loading: authLoading, mounted } = useAuthUser()
 
   const [activeConversationId, setActiveConversationId] = useState<string | null>(
-    queryConversationId
-  );
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+    queryConversationId,
+  )
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   // Streaming State
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [streamingDelta, setStreamingDelta] = useState("");
-  const [streamingCitations, setStreamingCitations] = useState<CitationItem[]>([]);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const [isStreaming, setIsStreaming] = useState(false)
+  const [streamingDelta, setStreamingDelta] = useState('')
+  const [streamingCitations, setStreamingCitations] = useState<CitationItem[]>([])
+  const [streamError, setStreamError] = useState<string | null>(null)
+  const [retryContent, setRetryContent] = useState<string | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const sendPendingRef = useRef(false)
 
   // Citation Drawer State (Phase 4.5.c)
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerCitations, setDrawerCitations] = useState<CitationItem[]>([]);
-  const [drawerIndex, setDrawerIndex] = useState(0);
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [drawerCitations, setDrawerCitations] = useState<CitationItem[]>([])
+  const [drawerIndex, setDrawerIndex] = useState(0)
 
   const handleOpenCitation = (citations: CitationItem[], index: number) => {
-    if (!citations || citations.length === 0) return;
-    setDrawerCitations(citations);
-    setDrawerIndex(index);
-    setDrawerOpen(true);
-  };
+    if (!citations || citations.length === 0) return
+    setDrawerCitations(citations)
+    setDrawerIndex(index)
+    setDrawerOpen(true)
+  }
 
   // Authentication check
   useEffect(() => {
     if (mounted && !authLoading && !user) {
-      router.replace("/login");
+      router.replace('/login')
     }
-  }, [mounted, authLoading, user, router]);
+  }, [mounted, authLoading, user, router])
 
   // Cleanup active stream on unmount
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
+        abortControllerRef.current.abort()
       }
-    };
-  }, []);
+    }
+  }, [])
 
   // Query Knowledge Base info
   const {
@@ -85,144 +89,159 @@ export default function RAGChatPage() {
     isError: kbError,
     error: kbErrorObj,
   } = useQuery<KnowledgeBasePublic>({
-    queryKey: ["kb", kbId],
+    queryKey: ['kb', kbId],
     queryFn: () => getKnowledgeBase(kbId),
     enabled: !!user && !!kbId,
     staleTime: 60 * 1000,
-  });
+  })
 
   // Query Conversations List
-  const {
-    data: conversations = [],
-  } = useQuery<ConversationSummary[]>({
-    queryKey: ["kb-conversations", kbId],
+  const { data: conversations = [] } = useQuery<ConversationSummary[]>({
+    queryKey: ['kb-conversations', kbId],
     queryFn: () => listConversations(kbId),
     enabled: !!user && !!kbId,
     staleTime: 10 * 1000,
-  });
+  })
 
   // Automatically select the most recent conversation if none is selected
   useEffect(() => {
     if (conversations.length > 0) {
-      if (!activeConversationId || !conversations.some((c) => c.id === activeConversationId)) {
-        setActiveConversationId(conversations[0].id);
+      if (!activeConversationId) {
+        setActiveConversationId(conversations[0].id)
       }
     }
-  }, [conversations, activeConversationId]);
+  }, [conversations, activeConversationId])
 
   // Query Active Conversation Detail
-  const {
-    data: activeConversation,
-    isLoading: activeConvLoading,
-  } = useQuery<ConversationPublic>({
-    queryKey: ["conversation", activeConversationId],
+  const { data: activeConversation, isLoading: activeConvLoading } = useQuery<ConversationPublic>({
+    queryKey: ['conversation', activeConversationId],
     queryFn: () => getConversation(activeConversationId!),
     enabled: !!user && !!activeConversationId,
-  });
+  })
 
   // Select conversation & sync URL query
   const handleSelectConversation = (id: string) => {
     if (isStreaming) {
-      handleStopGenerating();
+      handleStopGenerating()
     }
-    setActiveConversationId(id);
-    const url = new URL(window.location.href);
-    url.searchParams.set("c", id);
-    window.history.replaceState({}, "", url.toString());
-  };
+    setStreamingDelta('')
+    setStreamingCitations([])
+    setStreamError(null)
+    setRetryContent(null)
+    setDrawerOpen(false)
+    setActiveConversationId(id)
+    const url = new URL(window.location.href)
+    url.searchParams.set('c', id)
+    window.history.replaceState({}, '', url.toString())
+  }
 
   // Create Conversation Mutation
   const createMutation = useMutation({
-    mutationFn: () => createConversation(kbId, { title: "新会话" }),
+    mutationFn: () => createConversation(kbId, { title: '新会话' }),
     onSuccess: (newConv) => {
-      queryClient.invalidateQueries({ queryKey: ["kb-conversations", kbId] });
-      handleSelectConversation(newConv.id);
+      queryClient.setQueryData(['conversation', newConv.id], newConv)
+      queryClient.setQueryData<ConversationSummary[]>(['kb-conversations', kbId], (old = []) => [
+        { ...newConv, message_count: newConv.messages.length },
+        ...old.filter((conversation) => conversation.id !== newConv.id),
+      ])
+      queryClient.invalidateQueries({ queryKey: ['kb-conversations', kbId] })
+      handleSelectConversation(newConv.id)
     },
-  });
+  })
 
   // Rename Conversation Mutation
   const renameMutation = useMutation({
-    mutationFn: ({ id, title }: { id: string; title: string }) =>
-      updateConversation(id, { title }),
+    mutationFn: ({ id, title }: { id: string; title: string }) => updateConversation(id, { title }),
     onSuccess: (_, vars) => {
-      queryClient.invalidateQueries({ queryKey: ["kb-conversations", kbId] });
-      queryClient.invalidateQueries({ queryKey: ["conversation", vars.id] });
+      queryClient.invalidateQueries({ queryKey: ['kb-conversations', kbId] })
+      queryClient.invalidateQueries({ queryKey: ['conversation', vars.id] })
     },
-  });
+  })
 
   // Delete Conversation Mutation
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteConversation(id),
     onSuccess: (_, deletedId) => {
-      queryClient.invalidateQueries({ queryKey: ["kb-conversations", kbId] });
+      const remaining = conversations.filter((c) => c.id !== deletedId)
+      queryClient.setQueryData(['kb-conversations', kbId], remaining)
+      queryClient.invalidateQueries({ queryKey: ['kb-conversations', kbId] })
       if (activeConversationId === deletedId) {
-        const remaining = conversations.filter((c) => c.id !== deletedId);
+        handleStopGenerating()
         if (remaining.length > 0) {
-          handleSelectConversation(remaining[0].id);
+          handleSelectConversation(remaining[0].id)
         } else {
-          setActiveConversationId(null);
+          setActiveConversationId(null)
+          const url = new URL(window.location.href)
+          url.searchParams.delete('c')
+          window.history.replaceState({}, '', url.toString())
         }
       }
     },
-  });
+  })
 
   // Stop Generation Handler
   const handleStopGenerating = () => {
     if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
     }
-    setIsStreaming(false);
+    setIsStreaming(false)
     if (activeConversationId) {
-      queryClient.invalidateQueries({ queryKey: ["conversation", activeConversationId] });
-      queryClient.invalidateQueries({ queryKey: ["kb-conversations", kbId] });
+      queryClient.invalidateQueries({ queryKey: ['conversation', activeConversationId] })
+      queryClient.invalidateQueries({ queryKey: ['kb-conversations', kbId] })
     }
-  };
+  }
 
   // Send message via SSE Streaming (Phase 4.5.b)
-  const handleSendMessage = async (content: string) => {
-    if (isStreaming) return;
+  const handleSendMessage = async (content: string, optimistic = true) => {
+    if (sendPendingRef.current || abortControllerRef.current) return
+    sendPendingRef.current = true
 
-    let convId = activeConversationId;
+    let convId = activeConversationId
 
     // If no conversation exists yet, automatically create one first
     if (!convId) {
       try {
-        const created = await createMutation.mutateAsync();
-        convId = created.id;
+        const created = await createMutation.mutateAsync()
+        convId = created.id
       } catch (err) {
-        console.error("Failed to auto-create conversation", err);
-        return;
+        setStreamError(err instanceof Error ? err.message : '创建会话失败，请重试')
+        setRetryContent(content)
+        sendPendingRef.current = false
+        return
       }
     }
 
-    // 1. Optimistically append user message to active conversation cache
-    const tempUserMessage: MessagePublic = {
-      id: `temp-${Date.now()}`,
-      conversation_id: convId,
-      role: "user",
-      content,
-      citations: [],
-      created_at: new Date().toISOString(),
-    };
+    setStreamError(null)
+    setRetryContent(null)
 
-    queryClient.setQueryData<ConversationPublic>(
-      ["conversation", convId],
-      (old) => {
-        if (!old) return old;
-        return {
-          ...old,
-          messages: [...old.messages, tempUserMessage],
-        };
+    // Keep the conversation responsive while the server persists the user message.
+    if (optimistic) {
+      const tempUserMessage: MessagePublic = {
+        id: `temp-${Date.now()}`,
+        conversation_id: convId,
+        role: 'user',
+        content,
+        citations: [],
+        created_at: new Date().toISOString(),
       }
-    );
+
+      queryClient.setQueryData<ConversationPublic>(['conversation', convId], (old) => {
+        if (!old) return old
+        return { ...old, messages: [...old.messages, tempUserMessage] }
+      })
+    }
 
     // 2. Setup streaming state
-    setIsStreaming(true);
-    setStreamingDelta("");
-    setStreamingCitations([]);
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
+    setIsStreaming(true)
+    setStreamingDelta('')
+    setStreamingCitations([])
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+    sendPendingRef.current = false
+    let accumulated = ''
+    let frame: number | null = null
+    const isCurrent = () => abortControllerRef.current === controller && !controller.signal.aborted
 
     // 3. Initiate SSE Streaming Request
     try {
@@ -231,43 +250,51 @@ export default function RAGChatPage() {
         { content, stream: true },
         {
           onCitation: (citation) => {
-            setStreamingCitations((prev) => [...prev, citation]);
+            if (isCurrent()) setStreamingCitations((prev) => [...prev, citation])
           },
           onDelta: (delta) => {
-            setStreamingDelta((prev) => prev + delta);
-          },
-          onDone: () => {
-            setIsStreaming(false);
-            setStreamingDelta("");
-            setStreamingCitations([]);
-            // Invalidate queries to fetch DB persisted messages and citations
-            queryClient.invalidateQueries({ queryKey: ["conversation", convId] });
-            queryClient.invalidateQueries({ queryKey: ["kb-conversations", kbId] });
-          },
-          onError: (err) => {
-            console.error("Streaming error", err);
-            setIsStreaming(false);
-            queryClient.invalidateQueries({ queryKey: ["conversation", convId] });
+            accumulated += delta
+            if (frame === null)
+              frame = requestAnimationFrame(() => {
+                frame = null
+                if (isCurrent()) setStreamingDelta(accumulated)
+              })
           },
         },
-        controller.signal
-      );
-    } catch (err: any) {
-      if (err?.name !== "AbortError") {
-        console.error("Stream catch", err);
+        controller.signal,
+      )
+      if (isCurrent()) {
+        // Keep the final bubble visible until the persisted conversation is available.
+        setStreamingDelta(accumulated)
+        const persisted = await getConversation(convId)
+        if (isCurrent()) {
+          queryClient.setQueryData(['conversation', convId], persisted)
+          setStreamingDelta('')
+          setStreamingCitations([])
+          void queryClient.invalidateQueries({ queryKey: ['kb-conversations', kbId] })
+        }
+      }
+    } catch (err: unknown) {
+      if (isCurrent()) {
+        setStreamError(err instanceof Error ? err.message : '回答生成失败，请稍后重试')
+        setRetryContent(content)
       }
     } finally {
-      abortControllerRef.current = null;
+      if (frame !== null) cancelAnimationFrame(frame)
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null
+        setIsStreaming(false)
+      }
     }
-  };
+  }
 
   if (!mounted || authLoading || (kbLoading && !kb)) {
     return (
       <div className="flex h-[80vh] flex-col items-center justify-center gap-3">
         <Loader2 className="size-8 animate-spin text-primary" />
-        <p className="text-xs text-zinc-400">正在载入知识库对话工作台...</p>
+        <p className="text-xs text-muted-foreground">正在载入知识库对话工作台...</p>
       </div>
-    );
+    )
   }
 
   if (kbError || !kb) {
@@ -275,8 +302,8 @@ export default function RAGChatPage() {
       <div className="mx-auto max-w-xl px-4 py-20 text-center">
         <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-8">
           <h3 className="text-base font-semibold text-destructive">知识库未找到</h3>
-          <p className="mt-2 text-xs text-zinc-500">
-            {kbErrorObj instanceof Error ? kbErrorObj.message : "知识库不存在或无访问权限"}
+          <p className="mt-2 text-xs text-muted-foreground">
+            {kbErrorObj instanceof Error ? kbErrorObj.message : '知识库不存在或无访问权限'}
           </p>
           <div className="mt-5">
             <Link href="/rag">
@@ -288,26 +315,22 @@ export default function RAGChatPage() {
           </div>
         </div>
       </div>
-    );
+    )
   }
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] md:h-[100dvh] overflow-hidden bg-zinc-50/50 dark:bg-zinc-950/50">
+    <div className="flex h-[calc(100dvh-3.5rem)] md:h-[100dvh] overflow-hidden bg-background">
       {/* Left Double-Column: Conversation Tree Sidebar */}
       <ConversationSidebar
         kb={kb}
         conversations={conversations}
         selectedId={activeConversationId}
         onSelect={handleSelectConversation}
-        onCreate={async () => {
-          await createMutation.mutateAsync();
-        }}
+        onCreate={() => createMutation.mutate()}
         onRename={async (id, title) => {
-          await renameMutation.mutateAsync({ id, title });
+          await renameMutation.mutateAsync({ id, title })
         }}
-        onDelete={async (id) => {
-          await deleteMutation.mutateAsync(id);
-        }}
+        onDelete={(id) => deleteMutation.mutate(id)}
         isCreating={createMutation.isPending}
         isOpenMobile={mobileSidebarOpen}
         onCloseMobile={() => setMobileSidebarOpen(false)}
@@ -321,6 +344,14 @@ export default function RAGChatPage() {
           conversation={activeConversation}
           onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
         />
+        {(createMutation.error || renameMutation.error || deleteMutation.error) && (
+          <ErrorNotice
+            message={
+              (createMutation.error || renameMutation.error || deleteMutation.error)?.message ??
+              '操作失败，请重试'
+            }
+          />
+        )}
 
         {/* Message Stream Viewport */}
         <ChatMessages
@@ -330,12 +361,15 @@ export default function RAGChatPage() {
           streamingMessage={streamingDelta}
           streamingCitations={streamingCitations}
           isStreaming={isStreaming}
+          streamError={streamError}
+          onRetry={retryContent ? () => handleSendMessage(retryContent, false) : undefined}
           onSendPresetQuery={handleSendMessage}
           onOpenCitation={handleOpenCitation}
         />
 
         {/* Bottom Input Area */}
         <ChatInput
+          disabled={createMutation.isPending || activeConvLoading}
           onSend={handleSendMessage}
           onStop={handleStopGenerating}
           isStreaming={isStreaming}
@@ -351,5 +385,5 @@ export default function RAGChatPage() {
         />
       </main>
     </div>
-  );
+  )
 }

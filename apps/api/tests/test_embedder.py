@@ -147,3 +147,61 @@ async def test_get_user_openai_key_decryption(
     # Query for non-existent user returns None
     other_key = await service.get_user_openai_key(db_session, uuid.uuid4())
     assert other_key is None
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        [],
+        [{"index": 1, "embedding": [0.1] * EMBEDDING_DIM}],
+        [{"index": 0, "embedding": [0.1, 0.2]}],
+        [{"index": 0, "embedding": [0.0] * EMBEDDING_DIM}],
+        [{"index": 0, "embedding": ["invalid"] * EMBEDDING_DIM}],
+    ],
+)
+async def test_provider_invalid_vectors_do_not_fall_back(data: list[dict]) -> None:
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={"data": data}))
+    ) as client:
+        with pytest.raises(EmbeddingError):
+            await EmbeddingService(client).embed_query("question", api_key="test-key")
+        assert not client.is_closed
+
+
+async def test_provider_error_body_is_not_exposed() -> None:
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(503, text="secret document and credential")
+        )
+    ) as client:
+        with pytest.raises(EmbeddingError, match="503") as error:
+            await EmbeddingService(client).embed_query("question", api_key="test-key")
+        assert "secret" not in str(error.value)
+
+
+async def test_provider_batches_preserve_order_and_validate_indexes() -> None:
+    calls = 0
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    {"index": 1, "embedding": [calls + 0.2] * EMBEDDING_DIM},
+                    {"index": 0, "embedding": [calls + 0.1] * EMBEDDING_DIM},
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+        results = await EmbeddingService(client).embed_texts(
+            ["a", "b", "c", "d"], api_key="test-key", batch_size=2
+        )
+    assert [vector[0] for vector in results] == [1.1, 1.2, 2.1, 2.2]
+
+
+async def test_nonpositive_batch_size_rejected() -> None:
+    with pytest.raises(EmbeddingError, match="positive"):
+        await EmbeddingService().embed_texts(["text"], batch_size=0)
