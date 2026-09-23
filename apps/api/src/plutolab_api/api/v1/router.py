@@ -12,6 +12,7 @@ from plutolab_api.api.v1 import (
     notes,
     pomodoros,
     rag,
+    review,
     tasks,
     users,
 )
@@ -28,3 +29,4 @@ api_router.include_router(tasks.router)
 api_router.include_router(links.router)
 api_router.include_router(pomodoros.router)
 api_router.include_router(rag.router)
+api_router.include_router(review.router)

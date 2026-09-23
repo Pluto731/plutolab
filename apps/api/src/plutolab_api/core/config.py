@@ -1,7 +1,9 @@
 """App configuration loaded from environment variables / .env file."""
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from plutolab_api.schemas.review import ReviewBudgets
 
 
 class Settings(BaseSettings):
@@ -39,6 +41,15 @@ class Settings(BaseSettings):
     # GitHub OAuth (未配置时 /auth/github 返回 503, 前端按钮禁用)
     github_client_id: str = Field(default="")
     github_client_secret: str = Field(default="")
+
+    # Review GitHub App; independent of site OAuth, disabled until configured.
+    github_app_id: str = Field(default="")
+    github_app_private_key: SecretStr = Field(default=SecretStr(""))
+    github_app_timeout_seconds: float = Field(default=10.0, gt=0, le=60)
+    github_app_webhook_secret: SecretStr = Field(default=SecretStr(""))
+    review_webhook_model: str = Field(default="", max_length=200)
+    review_webhook_budgets: ReviewBudgets | None = None
+    review_webhook_max_attempts: int = Field(default=1, ge=1, le=100)
 
     # 邮件 (本地默认指向 Mailpit; 生产用环境变量覆盖指向真实 SMTP)
     smtp_host: str = Field(default="localhost")

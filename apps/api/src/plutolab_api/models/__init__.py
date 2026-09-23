@@ -10,10 +10,19 @@ from plutolab_api.models.rag import (
     RAGKnowledgeBase,
     RAGMessage,
 )
+from plutolab_api.models.review import (
+    GitHubInstallation,
+    ReviewAttempt,
+    ReviewDelivery,
+    ReviewJob,
+    ReviewOutbox,
+    ReviewSettings,
+)
 from plutolab_api.models.task import Task
 from plutolab_api.models.user import User
 
 __all__ = [
+    "GitHubInstallation",
     "Link",
     "Note",
     "PomodoroSession",
@@ -22,6 +31,11 @@ __all__ = [
     "RAGDocument",
     "RAGKnowledgeBase",
     "RAGMessage",
+    "ReviewAttempt",
+    "ReviewDelivery",
+    "ReviewJob",
+    "ReviewOutbox",
+    "ReviewSettings",
     "Task",
     "User",
 ]
