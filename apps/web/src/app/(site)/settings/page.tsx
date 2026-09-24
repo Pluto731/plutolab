@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, CheckCircle2, KeyRound, Loader2, UserRound } from "lucide-react";
+import { AlertCircle, CheckCircle2, Github, KeyRound, Loader2, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -13,6 +13,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   changePassword,
+  createGitHubLinkState,
+  githubConfig,
+  startGitHubLink,
   sendVerification,
   updateProfile,
   uploadAvatar,
@@ -57,6 +60,8 @@ export default function SettingsPage() {
   const [resendingVerify, setResendingVerify] = useState(false);
   const [verifyCooldown, setVerifyCooldown] = useState(0);
   const [verifyMsg, setVerifyMsg] = useState<Msg>(null);
+  const [linkingGitHub, setLinkingGitHub] = useState(false);
+  const [githubMsg, setGithubMsg] = useState<Msg>(null);
 
   // 重发验证邮件按钮的 60s 冷却 (匹配后端 email_verify_rate_limit_seconds)
   useEffect(() => {
@@ -147,6 +152,22 @@ export default function SettingsPage() {
       setPwMsg({ type: "err", text: err instanceof Error ? err.message : "修改失败" });
     } finally {
       setSavingPw(false);
+    }
+  };
+
+  const onLinkGitHub = async () => {
+    setGithubMsg(null);
+    setLinkingGitHub(true);
+    try {
+      const config = await githubConfig();
+      if (!config.configured || !config.client_id) {
+        throw new Error("GitHub OAuth 尚未配置，请联系管理员。");
+      }
+      const { state } = await createGitHubLinkState();
+      startGitHubLink(config.client_id, state);
+    } catch (err) {
+      setGithubMsg({ type: "err", text: err instanceof Error ? err.message : "无法发起关联" });
+      setLinkingGitHub(false);
     }
   };
 
@@ -249,6 +270,29 @@ export default function SettingsPage() {
             <FormMsg msg={nameMsg} />
           </div>
         </form>
+      </section>
+
+      {/* GitHub identity binding */}
+      <section className="mb-6 rounded-2xl border border-border bg-card/80 p-6 shadow-sm backdrop-blur">
+        <div className="mb-4 flex items-center gap-2">
+          <Github className="size-5 text-violet-500" />
+          <h2 className="text-lg font-semibold">GitHub 账号关联</h2>
+        </div>
+        <p className="mb-4 text-sm text-muted-foreground">
+          关联后可在评审设置中安装个人 GitHub App。授权会绑定到当前 PlutoLab 账号，不会创建新账号。
+        </p>
+        {user.github_id !== null ? (
+          <p role="status" className="text-sm text-emerald-600 dark:text-emerald-400">
+            已关联 GitHub 账号（ID：{user.github_id}）
+          </p>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3">
+            <Button type="button" onClick={onLinkGitHub} disabled={linkingGitHub}>
+              {linkingGitHub ? "正在跳转…" : "关联 GitHub 账号"}
+            </Button>
+            <FormMsg msg={githubMsg} />
+          </div>
+        )}
       </section>
 
       {/* 修改密码 */}

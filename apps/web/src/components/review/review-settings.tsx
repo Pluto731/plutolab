@@ -174,7 +174,11 @@ function InstallationSettings({ accountName }: { accountName: string }) {
                 </Button>
                 {!data.github_account_id && (
                   <p className="text-sm text-muted-foreground">
-                    请先使用已关联 GitHub 的账户登录。
+                    请先在{' '}
+                    <Link href="/settings" className="font-medium text-primary underline">
+                      账号设置
+                    </Link>{' '}
+                    中关联 GitHub 账号。
                   </p>
                 )}
               </div>

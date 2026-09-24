@@ -28,6 +28,8 @@ from plutolab_api.models.user import User
 from plutolab_api.schemas.auth import (
     ForgotPasswordRequest,
     GitHubConfigResponse,
+    GitHubLinkRequest,
+    GitHubLinkStateResponse,
     GitHubLoginRequest,
     LoginRequest,
     MessageResponse,
@@ -50,6 +52,8 @@ MailerDep = Annotated[Mailer, Depends(get_mailer)]
 
 PASSWORD_RESET_PURPOSE = "pwreset"
 EMAIL_VERIFY_PURPOSE = "emailverify"
+GITHUB_LINK_PURPOSE = "githublink"
+GITHUB_LINK_TTL_SECONDS = 600
 # 验证码流程的 Redis key 前缀 (复合 payload, 不走 tokens 模块)
 _CODE_KEY = "pwresetcode"
 _CODE_ATTEMPTS_KEY = "pwresetattempts"
@@ -193,6 +197,48 @@ async def github_login(body: GitHubLoginRequest, db: DbSession) -> TokenResponse
     return _tokens_for(user)
 
 
+@router.post("/github/link/state", response_model=GitHubLinkStateResponse)
+async def github_link_state(user: CurrentUser, redis: RedisDep) -> GitHubLinkStateResponse:
+    """Create a short-lived, one-time OAuth state tied to the signed-in account."""
+    if not (settings.github_client_id and settings.github_client_secret):
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="GitHub 登录未配置")
+    state = await issue_token(redis, GITHUB_LINK_PURPOSE, str(user.id), GITHUB_LINK_TTL_SECONDS)
+    return GitHubLinkStateResponse(state=state)
+
+
+@router.post("/github/link", response_model=UserPublic)
+async def github_link(
+    body: GitHubLinkRequest,
+    user: CurrentUser,
+    db: DbSession,
+    redis: RedisDep,
+) -> User:
+    """Bind the GitHub identity authorized in this browser to its current account."""
+    if not (settings.github_client_id and settings.github_client_secret):
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="GitHub 登录未配置")
+
+    state_owner = await consume_token(redis, GITHUB_LINK_PURPOSE, body.state)
+    if state_owner != str(user.id):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="GitHub 授权状态无效或已过期")
+
+    gh = await exchange_code(body.code, body.redirect_uri)
+    if user.github_id is not None and user.github_id != gh.id:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="当前账号已关联其他 GitHub 账号")
+
+    existing = await db.scalar(select(User).where(User.github_id == gh.id))
+    if existing is not None and existing.id != user.id:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail="该 GitHub 账号已关联其他 PlutoLab 账号"
+        )
+
+    user.github_id = gh.id
+    if not user.avatar:
+        user.avatar = gh.avatar
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
 @router.post("/forgot-password", response_model=MessageResponse)
 async def forgot_password(
     body: ForgotPasswordRequest,
@@ -279,9 +325,7 @@ async def send_verification(
 
 
 @router.post("/verify-email", response_model=MessageResponse)
-async def verify_email(
-    body: VerifyEmailRequest, db: DbSession, redis: RedisDep
-) -> MessageResponse:
+async def verify_email(body: VerifyEmailRequest, db: DbSession, redis: RedisDep) -> MessageResponse:
     """Consume an email-verification token and mark the user as verified."""
     user_id = await consume_token(redis, EMAIL_VERIFY_PURPOSE, body.token)
     if user_id is None:
@@ -341,9 +385,7 @@ async def request_password_code(
             "user_id": str(user.id),
         }
     )
-    await redis.set(
-        f"{_CODE_KEY}:{email}", payload, ex=settings.password_reset_code_ttl_seconds
-    )
+    await redis.set(f"{_CODE_KEY}:{email}", payload, ex=settings.password_reset_code_ttl_seconds)
     # 重置 attempts 计数 (重新申请等于清零)
     await redis.delete(f"{_CODE_ATTEMPTS_KEY}:{email}")
 

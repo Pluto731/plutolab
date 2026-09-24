@@ -3,6 +3,7 @@ import { API_URL } from "@/lib/api";
 export interface AuthUser {
   id: string;
   email: string;
+  github_id: number | null;
   name: string | null;
   avatar: string | null;
   plan: string;
@@ -250,13 +251,50 @@ export async function githubLogin(code: string, redirectUri: string): Promise<To
   return data as TokenResponse;
 }
 
+export async function createGitHubLinkState(): Promise<{ state: string }> {
+  const res = await fetch(`${API_URL}/api/v1/auth/github/link/state`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  const data: unknown = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(detailMessage(data, "无法发起 GitHub 账号关联"));
+  return data as { state: string };
+}
+
+export async function linkGitHubAccount(
+  code: string,
+  redirectUri: string,
+  state: string,
+): Promise<AuthUser> {
+  const res = await fetch(`${API_URL}/api/v1/auth/github/link`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({ code, redirect_uri: redirectUri, state }),
+  });
+  const data: unknown = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(detailMessage(data, "GitHub 账号关联失败"));
+  return data as AuthUser;
+}
+
 /** 发起 GitHub 授权跳转 (带 state 防 CSRF, 存 sessionStorage 供回调校验)。
  *  用 getRandomValues 而非 randomUUID: 后者在 http (非 secure context) 下不可用。 */
 export function startGitHubAuth(clientId: string): void {
+  startOAuth(clientId, createOAuthState(), "login");
+}
+
+export function startGitHubLink(clientId: string, state: string): void {
+  startOAuth(clientId, state, "link");
+}
+
+function createOAuthState(): string {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
-  const state = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function startOAuth(clientId: string, state: string, flow: "login" | "link"): void {
   sessionStorage.setItem("gh_oauth_state", state);
+  sessionStorage.setItem("gh_oauth_flow", flow);
   const redirectUri = `${window.location.origin}/auth/github/callback`;
   const params = new URLSearchParams({
     client_id: clientId,

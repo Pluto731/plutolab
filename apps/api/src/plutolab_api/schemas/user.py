@@ -11,6 +11,7 @@ class UserPublic(BaseModel):
 
     id: UUID
     email: EmailStr
+    github_id: int | None
     name: str | None
     avatar: str | None
     plan: str

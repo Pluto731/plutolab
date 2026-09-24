@@ -10,6 +10,8 @@ from plutolab_api.core.github_oauth import GitHubUser
 GITHUB = "/api/v1/auth/github"
 CONFIG = "/api/v1/auth/github/config"
 REGISTER = "/api/v1/auth/register"
+LINK_STATE = "/api/v1/auth/github/link/state"
+LINK = "/api/v1/auth/github/link"
 RU = "http://localhost:3000/auth/github/callback"
 
 
@@ -48,7 +50,13 @@ class TestGitHubLogin:
     ) -> None:
         _mock_exchange(
             monkeypatch,
-            GitHubUser(id=999, login="octocat", email="octo@example.com", name="Octo", avatar="http://x/a.png"),
+            GitHubUser(
+                id=999,
+                login="octocat",
+                email="octo@example.com",
+                name="Octo",
+                avatar="http://x/a.png",
+            ),
         )
         resp = await client.post(GITHUB, json={"code": "x", "redirect_uri": RU})
         assert resp.status_code == 200
@@ -80,3 +88,101 @@ class TestGitHubLogin:
         resp = await client.post(GITHUB, json={"code": "x", "redirect_uri": RU})
         assert resp.status_code == 200
         assert resp.json()["user"]["email"] == "merge@example.com"
+
+
+class TestGitHubAccountLink:
+    async def test_links_to_authenticated_account_without_email_matching(
+        self, client: AsyncClient, configured: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        account = await client.post(
+            REGISTER, json={"email": "pluto@example.com", "password": "supersecret"}
+        )
+        headers = {"Authorization": f"Bearer {account.json()['access_token']}"}
+        state_resp = await client.post(LINK_STATE, headers=headers)
+        assert state_resp.status_code == 200
+
+        _mock_exchange(
+            monkeypatch,
+            GitHubUser(
+                id=2001, login="pluto", email="different@example.com", name="Pluto", avatar=None
+            ),
+        )
+        linked = await client.post(
+            LINK,
+            headers=headers,
+            json={"code": "oauth-code", "redirect_uri": RU, "state": state_resp.json()["state"]},
+        )
+        assert linked.status_code == 200
+        assert linked.json()["github_id"] == 2001
+        assert linked.json()["email"] == "pluto@example.com"
+
+        replay = await client.post(
+            LINK,
+            headers=headers,
+            json={"code": "oauth-code", "redirect_uri": RU, "state": state_resp.json()["state"]},
+        )
+        assert replay.status_code == 400
+
+    async def test_link_requires_authenticated_account(
+        self, client: AsyncClient, configured: None
+    ) -> None:
+        response = await client.post(LINK_STATE)
+        assert response.status_code == 401
+
+    async def test_link_state_is_bound_to_issuing_account(
+        self, client: AsyncClient, configured: None
+    ) -> None:
+        owner = await client.post(
+            REGISTER, json={"email": "owner@example.com", "password": "supersecret"}
+        )
+        other = await client.post(
+            REGISTER, json={"email": "other@example.com", "password": "supersecret"}
+        )
+        owner_headers = {"Authorization": f"Bearer {owner.json()['access_token']}"}
+        other_headers = {"Authorization": f"Bearer {other.json()['access_token']}"}
+        state = (await client.post(LINK_STATE, headers=owner_headers)).json()["state"]
+
+        response = await client.post(
+            LINK,
+            headers=other_headers,
+            json={"code": "oauth-code", "redirect_uri": RU, "state": state + "tampered"},
+        )
+        assert response.status_code == 400
+
+        cross_account = await client.post(
+            LINK,
+            headers=other_headers,
+            json={"code": "oauth-code", "redirect_uri": RU, "state": state},
+        )
+        assert cross_account.status_code == 400
+
+    async def test_rejects_github_identity_owned_by_another_account(
+        self, client: AsyncClient, configured: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        first = await client.post(
+            REGISTER, json={"email": "first@example.com", "password": "supersecret"}
+        )
+        second = await client.post(
+            REGISTER, json={"email": "second@example.com", "password": "supersecret"}
+        )
+        headers = {"Authorization": f"Bearer {second.json()['access_token']}"}
+        state = (await client.post(LINK_STATE, headers=headers)).json()["state"]
+        _mock_exchange(
+            monkeypatch,
+            GitHubUser(id=2002, login="taken", email="other@example.com", name=None, avatar=None),
+        )
+        first_headers = {"Authorization": f"Bearer {first.json()['access_token']}"}
+        first_state = (await client.post(LINK_STATE, headers=first_headers)).json()["state"]
+        accepted = await client.post(
+            LINK,
+            headers=first_headers,
+            json={"code": "first-code", "redirect_uri": RU, "state": first_state},
+        )
+        assert accepted.status_code == 200
+
+        rejected = await client.post(
+            LINK,
+            headers=headers,
+            json={"code": "second-code", "redirect_uri": RU, "state": state},
+        )
+        assert rejected.status_code == 409

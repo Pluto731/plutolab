@@ -31,6 +31,14 @@ class GitHubLoginRequest(BaseModel):
     redirect_uri: str
 
 
+class GitHubLinkRequest(GitHubLoginRequest):
+    state: str = Field(min_length=32, max_length=128)
+
+
+class GitHubLinkStateResponse(BaseModel):
+    state: str
+
+
 class GitHubConfigResponse(BaseModel):
     client_id: str
     configured: bool
