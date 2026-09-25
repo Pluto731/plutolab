@@ -93,6 +93,37 @@ services:
         condition: service_started
     networks:
       - plutolab-prod
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/api/v1/health >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  agent-worker:
+    image: plutolab-api:latest
+    container_name: plutolab-prod-agent-worker
+    restart: unless-stopped
+    command:
+      [
+        "python",
+        "-m",
+        "plutolab_api.agent_worker",
+        "--continuous",
+        "--openai-provider",
+        "--production-worker",
+      ]
+    environment:
+      ENV: production
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-pluto}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-pluto}
+      REDIS_URL: redis://redis:6379/0
+      FERNET_KEY: ${FERNET_KEY:?FERNET_KEY required in .env.prod, gen with Fernet.generate_key()}
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - plutolab-prod
 
   # 邮件捕获 (Phase 2.3) — 后端往 mailhog:1025 发信, 邮件不真出 VPS
   # 安全: Web UI 只绑 loopback (127.0.0.1:8025), 不暴露公网, 否则任何人能读所有密码重置邮件

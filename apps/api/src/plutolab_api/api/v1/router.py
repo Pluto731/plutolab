@@ -3,6 +3,8 @@
 from fastapi import APIRouter
 
 from plutolab_api.api.v1 import (
+    agent_runs,
+    agents,
     api_keys,
     auth,
     dashboard,
@@ -15,6 +17,7 @@ from plutolab_api.api.v1 import (
     review,
     tasks,
     users,
+    workflows,
 )
 
 api_router = APIRouter()
@@ -30,3 +33,6 @@ api_router.include_router(links.router)
 api_router.include_router(pomodoros.router)
 api_router.include_router(rag.router)
 api_router.include_router(review.router)
+api_router.include_router(agents.router)
+api_router.include_router(workflows.router)
+api_router.include_router(agent_runs.router)

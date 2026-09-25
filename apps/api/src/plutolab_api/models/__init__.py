@@ -1,5 +1,7 @@
 """SQLAlchemy ORM models. Import models here so Alembic can discover them."""
 
+from plutolab_api.models.agent import Agent
+from plutolab_api.models.agent_run import AgentRun, AgentRunEvent, AgentRunNode, AgentRunOutbox
 from plutolab_api.models.link import Link
 from plutolab_api.models.note import Note
 from plutolab_api.models.pomodoro import PomodoroSession
@@ -20,8 +22,14 @@ from plutolab_api.models.review import (
 )
 from plutolab_api.models.task import Task
 from plutolab_api.models.user import User
+from plutolab_api.models.workflow import Workflow, WorkflowRevision
 
 __all__ = [
+    "Agent",
+    "AgentRun",
+    "AgentRunEvent",
+    "AgentRunNode",
+    "AgentRunOutbox",
     "GitHubInstallation",
     "Link",
     "Note",
@@ -38,4 +46,6 @@ __all__ = [
     "ReviewSettings",
     "Task",
     "User",
+    "Workflow",
+    "WorkflowRevision",
 ]

@@ -10,3 +10,7 @@ allowBuilds:
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver
+
+# React Flow uses Zustand 4; its store shim must support the workspace React 19.
+overrides:
+  'zustand@4>use-sync-external-store': ^1.6.0
