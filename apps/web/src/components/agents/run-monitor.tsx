@@ -3,7 +3,9 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Activity, Check, CircleAlert, Clock3, RefreshCw, Workflow } from 'lucide-react'
 import { agentRunsApi, RunRequestError, streamRunEvents } from '@/lib/agent-runs'
+import { Phase6Navigation } from './phase6-navigation'
 import type { RunDetail, RunEvent, RunSummary } from '../../../../../packages/types/src/agent-run'
 import type { RunState } from '../../../../../packages/types/src/agent'
 
@@ -87,6 +89,14 @@ export function RunMonitor({ initialRunId }: { initialRunId?: string }) {
   const sequence = useRef(0)
   const detailRequest = useRef(0)
   const orderedLayers = useMemo(() => (detail ? layers(detail) : []), [detail])
+  const runCounts = useMemo(
+    () => ({
+      active: items.filter((item) => active(item.state)).length,
+      succeeded: items.filter((item) => item.state === 'succeeded').length,
+      attention: items.filter((item) => item.state === 'failed' || item.state === 'partial').length,
+    }),
+    [items],
+  )
 
   const loadList = useCallback(async () => {
     setLoading(true)
@@ -215,14 +225,14 @@ export function RunMonitor({ initialRunId }: { initialRunId?: string }) {
   }
 
   return (
-    <main className="mx-auto max-w-7xl space-y-6 px-5 py-8 md:px-8 md:py-12">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+    <main className="mx-auto max-w-7xl space-y-6 px-4 py-7 sm:px-6 md:py-10">
+      <Phase6Navigation active="/agents/runs" />
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-border/60 pb-5">
         <div>
-          <Link href="/agents" className="text-sm underline">
-            ← Agent 工作台
-          </Link>
-          <p className="mt-3 text-sm text-muted-foreground">Phase 6 · 运行历史</p>
-          <h1 className="text-3xl font-semibold">协作运行监控</h1>
+          <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-violet-600 dark:text-violet-300">
+            <Activity className="size-3.5" /> Phase 06 · Runtime
+          </p>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">协作运行监控</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
             查看节点进度与安全摘要；事件可从断线位置续传，节点输出仅对运行所有者可见。
           </p>
@@ -234,11 +244,39 @@ export function RunMonitor({ initialRunId }: { initialRunId?: string }) {
             if (selectedId) void loadDetail(selectedId)
           }}
           disabled={loading || detailLoading}
-          className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-4 py-2.5 text-sm shadow-sm transition hover:bg-muted disabled:opacity-50"
         >
+          <RefreshCw className="size-3.5" />
           刷新
         </button>
       </header>
+      <section
+        aria-label="运行概览"
+        className="grid grid-cols-3 divide-x divide-border/70 border-b border-border/60 pb-5"
+      >
+        <div className="pr-4 sm:px-6 sm:first:pl-0">
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Clock3 className="size-3.5 text-sky-500" /> 进行中
+          </p>
+          <p className="mt-1.5 font-mono text-2xl font-semibold tabular-nums">{runCounts.active}</p>
+        </div>
+        <div className="px-4 sm:px-6">
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Check className="size-3.5 text-emerald-500" /> 已完成
+          </p>
+          <p className="mt-1.5 font-mono text-2xl font-semibold tabular-nums">
+            {runCounts.succeeded}
+          </p>
+        </div>
+        <div className="pl-4 sm:px-6">
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            <CircleAlert className="size-3.5 text-amber-500" /> 需关注
+          </p>
+          <p className="mt-1.5 font-mono text-2xl font-semibold tabular-nums">
+            {runCounts.attention}
+          </p>
+        </div>
+      </section>
       {error && (
         <p
           role="alert"
@@ -252,11 +290,14 @@ export function RunMonitor({ initialRunId }: { initialRunId?: string }) {
           {message}
         </p>
       )}
-      <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
-        <aside aria-label="运行历史" className="space-y-3 rounded-2xl border p-4">
+      <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
+        <aside aria-label="运行历史" className="space-y-3 lg:pr-5">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold">最近运行</h2>
-            <span className="text-xs text-muted-foreground">{items.length}</span>
+            <h2 className="flex items-center gap-2 text-sm font-semibold">
+              <Workflow className="size-4 text-violet-500" />
+              最近运行
+            </h2>
+            <span className="font-mono text-xs text-muted-foreground">{items.length}</span>
           </div>
           {loading ? (
             <p role="status" className="text-sm text-muted-foreground">
@@ -270,15 +311,18 @@ export function RunMonitor({ initialRunId }: { initialRunId?: string }) {
               </Link>
             </div>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-1">
               {items.map((item) => (
                 <li key={item.id}>
                   <button
                     type="button"
                     onClick={() => selectRun(item.id)}
                     aria-current={selectedId === item.id ? 'true' : undefined}
-                    className={`w-full rounded-xl border p-3 text-left transition-colors ${selectedId === item.id ? 'border-primary bg-primary/5' : 'hover:bg-muted/40'}`}
+                    className={`relative w-full rounded-xl px-3 py-3 text-left transition-colors ${selectedId === item.id ? 'bg-violet-500/10' : 'hover:bg-muted/60'}`}
                   >
+                    {selectedId === item.id && (
+                      <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-violet-500" />
+                    )}
                     <span className="flex items-center justify-between gap-2">
                       <span className="truncate text-sm font-medium">{item.id.slice(0, 8)}</span>
                       <span
@@ -298,7 +342,10 @@ export function RunMonitor({ initialRunId }: { initialRunId?: string }) {
           )}
         </aside>
 
-        <section aria-label="运行详情" className="min-w-0 space-y-5 rounded-2xl border p-4 md:p-6">
+        <section
+          aria-label="运行详情"
+          className="min-w-0 space-y-5 lg:border-l lg:border-border/70 lg:pl-6"
+        >
           {!selectedId ? (
             <div className="grid min-h-64 place-items-center text-center">
               <div>

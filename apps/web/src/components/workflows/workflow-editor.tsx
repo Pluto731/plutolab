@@ -4,7 +4,9 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Component, useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { Play, Plus, RefreshCw, Workflow } from 'lucide-react'
 import { agentsApi, type AgentPublic } from '@/lib/agents'
+import { Phase6Navigation } from '@/components/agents/phase6-navigation'
 import { agentRunsApi, RunRequestError } from '@/lib/agent-runs'
 import { connectNodes, graphIssue, removeNode } from '@/lib/workflow-graph'
 import {
@@ -37,7 +39,8 @@ const empty = (): WorkflowCreate => ({
   graph: { nodes: [], edges: [] },
   layout: {},
 })
-const inputStyle = 'rounded border bg-background px-3 py-2'
+const inputStyle =
+  'rounded-xl border border-border/70 bg-background/80 px-3 py-2.5 text-sm shadow-sm outline-none transition focus:border-violet-500/60 focus:ring-4 focus:ring-violet-500/10'
 export function WorkflowEditor() {
   const router = useRouter()
   const [draft, setDraft] = useState<WorkflowCreate>(empty)
@@ -341,14 +344,20 @@ export function WorkflowEditor() {
     }
   }
   return (
-    <main className="mx-auto max-w-7xl space-y-6 px-6 py-10">
-      <header className="space-y-2">
-        <Link href="/agents" className="text-sm underline">
-          返回 Agent 工作台
-        </Link>
-        <h1 className="text-3xl font-semibold">编排协作流程</h1>
-        <p className="text-muted-foreground">
-          连接 Agent，保存带版本的流程。拖动画布节点调整布局，或使用表单完成编辑。
+    <main className="mx-auto max-w-7xl space-y-6 px-4 py-7 sm:px-6 md:py-10">
+      <Phase6Navigation active="/agents/workflows" />
+      <header className="flex flex-wrap items-end justify-between gap-6 border-b border-border/60 pb-6">
+        <div>
+          <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-violet-600 dark:text-violet-300">
+            <Workflow className="size-3.5" /> Phase 06 · Workflow design
+          </p>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">编排协作流程</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+            将专注的 Agent 连接成可复用流程，在画布中整理执行顺序，再运行已保存版本。
+          </p>
+        </div>
+        <p className="font-mono text-sm text-muted-foreground">
+          <span className="text-2xl font-semibold text-foreground">{total}</span> 个流程
         </p>
       </header>
       {error && (
@@ -359,11 +368,16 @@ export function WorkflowEditor() {
       {message && <p role="status">{message}</p>}
       <section
         aria-label="内置 Workflow 模板"
-        className="flex flex-wrap items-end gap-3 rounded-xl border p-4"
+        className="relative flex flex-wrap items-end gap-3 border-l-2 border-violet-500 bg-violet-500/[0.045] px-4 py-3"
       >
         <div className="min-w-60 flex-1">
-          <h2 className="font-semibold">从内置模板开始</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            <span className="grid size-7 place-items-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-300">
+              <Workflow className="size-4" />
+            </span>
+            从模板快速开始
+          </h2>
+          <p className="ml-9 mt-0.5 text-xs text-muted-foreground">
             导入会复制 Agents 和 Workflow 到你的账户，之后可独立修改。
           </p>
         </div>
@@ -399,7 +413,7 @@ export function WorkflowEditor() {
               type="button"
               onClick={() => void importTemplate()}
               disabled={busy || !templateId}
-              className="rounded border px-3 py-2 text-sm disabled:opacity-50"
+              className="rounded-full bg-violet-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-violet-500 disabled:opacity-50"
             >
               导入私有副本
             </button>
@@ -410,36 +424,59 @@ export function WorkflowEditor() {
           </p>
         )}
       </section>
-      <div className="grid gap-6 lg:grid-cols-[230px_1fr]">
-        <aside className="space-y-3 rounded-xl border p-4">
-          <button disabled={busy} className={inputStyle} onClick={() => load(null)}>
-            新建流程
-          </button>
+      <div className="grid gap-6 lg:grid-cols-[230px_minmax(0,1fr)]">
+        <aside className="space-y-4 lg:pt-1">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-semibold">我的流程</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">已保存的版本</p>
+            </div>
+            <button
+              type="button"
+              aria-label="新建流程"
+              disabled={busy}
+              className="grid size-9 place-items-center rounded-full bg-violet-600 text-white shadow-sm transition hover:bg-violet-500 disabled:opacity-50"
+              onClick={() => load(null)}
+            >
+              <Plus className="size-4" />
+            </button>
+          </div>
           <button
+            type="button"
             disabled={busy || loading}
             onClick={() => {
               setError('')
               setRefresh((v) => v + 1)
             }}
-            className="ml-2 underline"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-foreground disabled:opacity-50"
           >
-            刷新
+            <RefreshCw className="size-3" /> 刷新列表
           </button>
           {loading ? (
             <p role="status">加载流程中…</p>
           ) : items.length === 0 ? (
             <p>暂无流程。</p>
           ) : (
-            <ul className="space-y-2">
+            <ul className="space-y-1">
               {items.map((item) => (
                 <li key={item.id}>
                   <button
                     disabled={busy}
                     onClick={() => load(item)}
-                    className={`w-full rounded border p-3 text-left ${current?.id === item.id ? 'bg-muted' : ''}`}
+                    className={`relative flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left transition ${current?.id === item.id ? 'bg-violet-500/10' : 'hover:bg-muted/60'}`}
                   >
-                    {item.name}
-                    <span className="block text-xs">版本 {item.version}</span>
+                    {current?.id === item.id && (
+                      <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-violet-500" />
+                    )}
+                    <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-violet-600 dark:text-violet-300">
+                      <Workflow className="size-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium">{item.name}</span>
+                      <span className="mt-1 block text-xs text-muted-foreground">
+                        版本 {item.version}
+                      </span>
+                    </span>
                   </button>
                 </li>
               ))}
@@ -461,25 +498,28 @@ export function WorkflowEditor() {
           </div>
         </aside>
         <section className="space-y-5">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 border-b border-border/60 pb-3">
             <h2 className="text-xl font-medium">
               {current ? `编辑流程 · v${current.version}` : '新流程'}
             </h2>
             <span className="text-sm text-muted-foreground">
-              {dirty ? '有未保存修改' : '草稿与已加载内容一致'}
+              {dirty ? '● 有未保存修改' : '✓ 已同步'}
             </span>
-            <button onClick={() => setShowCanvas((v) => !v)} className="ml-auto underline">
+            <button
+              onClick={() => setShowCanvas((v) => !v)}
+              className="ml-auto rounded-full px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            >
               {showCanvas ? '仅用表单编辑' : '显示画布'}
             </button>
           </div>
           {current?.status === 'ready' && (
             <form
               onSubmit={(event) => void startRun(event)}
-              className="space-y-3 rounded-xl border p-4"
+              className="space-y-3 rounded-2xl bg-gradient-to-br from-violet-950 to-zinc-950 p-5 text-white shadow-lg shadow-violet-950/10 sm:p-6"
             >
               <div>
                 <h3 className="font-semibold">运行已保存的版本</h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-zinc-300">
                   使用 v{current.version}；未保存的修改不会进入本次运行。Run 会先进入队列。
                 </p>
               </div>
@@ -495,7 +535,7 @@ export function WorkflowEditor() {
                     setRunInput(event.target.value)
                     setRunKey('')
                   }}
-                  className="mt-1 w-full rounded border bg-background p-3"
+                  className="mt-1 w-full rounded-xl border border-white/15 bg-white/[0.06] p-3 text-white outline-none placeholder:text-zinc-500 focus:border-violet-400/70 focus:ring-4 focus:ring-violet-500/15"
                   placeholder="描述这次 Workflow 要处理的内容"
                   disabled={runBusy}
                 />
@@ -510,31 +550,32 @@ export function WorkflowEditor() {
               <button
                 type="submit"
                 disabled={runBusy || dirty || !runInput.trim()}
-                className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-medium text-zinc-950 transition hover:bg-violet-100 disabled:opacity-50"
               >
+                <Play className="size-3.5" />
                 {runBusy ? '正在创建…' : '创建 Run'}
               </button>
             </form>
           )}
-          <div className="space-y-3">
-            <label className="block">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block space-y-1.5 text-sm font-medium">
               流程名称
               <input
                 disabled={disabled}
                 required
                 maxLength={100}
-                className={`${inputStyle} ml-3`}
+                className={`${inputStyle} mt-1 block w-full font-normal`}
                 value={draft.name}
                 onChange={(e) => edit((old) => ({ ...old, name: e.target.value }))}
               />
             </label>
-            <label className="block">
+            <label className="block space-y-1.5 text-sm font-medium">
               流程描述
               <textarea
                 aria-label="流程描述"
                 disabled={disabled}
                 maxLength={2000}
-                className={`${inputStyle} mt-1 block w-full`}
+                className={`${inputStyle} mt-1 block w-full font-normal`}
                 value={draft.description}
                 onChange={(e) => edit((old) => ({ ...old, description: e.target.value }))}
               />
@@ -562,7 +603,7 @@ export function WorkflowEditor() {
           )}
           <fieldset
             disabled={disabled}
-            className="space-y-4 rounded-xl border p-4 disabled:opacity-60"
+            className="space-y-4 border-t border-border/60 pt-5 disabled:opacity-60"
           >
             <legend className="px-2 font-medium">节点与连线表单</legend>
             {agentError && <p role="alert">{agentError}</p>}

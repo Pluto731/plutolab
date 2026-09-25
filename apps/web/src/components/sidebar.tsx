@@ -31,7 +31,6 @@ interface NavItem {
   name: string;
   href: string;
   icon: typeof Home;
-  badge?: string;
 }
 
 const PRIMARY_ITEMS: NavItem[] = [
@@ -41,9 +40,9 @@ const PRIMARY_ITEMS: NavItem[] = [
   { name: "番茄钟", href: "/pomodoro", icon: Target },
   { name: "收藏", href: "/links", icon: Bookmark },
   { name: "RAG", href: "/rag", icon: ScrollText },
-  { name: "评审", href: "/review", icon: Sparkles, badge: "P5" },
-  { name: "Agent", href: "/agents", icon: Bot, badge: "P6" },
-  { name: "画作", href: "/gallery", icon: ImageIcon, badge: "P7" },
+  { name: "评审", href: "/review", icon: Sparkles },
+  { name: "Agent", href: "/agents", icon: Bot },
+  { name: "画作", href: "/gallery", icon: ImageIcon },
 ];
 
 /**
@@ -191,11 +190,6 @@ export function Sidebar() {
                       )}
                     />
                     <span className="relative flex-1 truncate">{item.name}</span>
-                    {item.badge && (
-                      <span className="relative rounded bg-zinc-100 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-zinc-500 dark:bg-white/[0.06] dark:text-zinc-400">
-                        {item.badge}
-                      </span>
-                    )}
                   </Link>
                 </li>
               );
