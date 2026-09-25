@@ -7,7 +7,7 @@ import { Component, useEffect, useState, type FormEvent, type ReactNode } from '
 import { Play, Plus, RefreshCw, Workflow } from 'lucide-react'
 import { agentsApi, type AgentPublic } from '@/lib/agents'
 import { Phase6Navigation } from '@/components/agents/phase6-navigation'
-import { agentRunsApi, RunRequestError } from '@/lib/agent-runs'
+import { agentRunsApi, createRunKey, RunRequestError } from '@/lib/agent-runs'
 import { connectNodes, graphIssue, removeNode } from '@/lib/workflow-graph'
 import {
   workflowsApi,
@@ -294,9 +294,9 @@ export function WorkflowEditor() {
     if (!current || current.status !== 'ready' || dirty || !runInput.trim()) return
     setRunBusy(true)
     setRunError('')
-    const key = runKey || crypto.randomUUID()
-    setRunKey(key)
     try {
+      const key = runKey || createRunKey()
+      setRunKey(key)
       const created = await agentRunsApi.create(
         current.id,
         { workflow_version: current.version, text: runInput.trim() },
@@ -519,6 +519,9 @@ export function WorkflowEditor() {
             >
               <div>
                 <h3 className="font-semibold">运行已保存的版本</h3>
+                <p className="mt-1 text-sm text-violet-200">
+                  当前支持整理输入和只读笔记检索；GitHub 联网查询与自动写入笔记尚未接入。
+                </p>
                 <p className="text-sm text-zinc-300">
                   使用 v{current.version}；未保存的修改不会进入本次运行。Run 会先进入队列。
                 </p>

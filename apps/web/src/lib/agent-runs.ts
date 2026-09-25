@@ -13,17 +13,26 @@ import type {
 export class RunRequestError extends Error {
   constructor(readonly status: number) {
     super(
-      status === 401
-        ? '请先登录。'
-        : status === 404
-          ? '运行不存在或已过期。'
-          : status === 409
-            ? '幂等键冲突，请刷新后重试。'
-            : status === 410
-              ? '事件游标已过期，请刷新运行详情。'
-              : '运行请求失败，请重试。',
+      status === 0
+        ? '请求超时或连接中断，创建结果暂不确定。请先查看运行历史，或使用原请求重试。'
+        : status === 401
+          ? '请先登录。'
+          : status === 404
+            ? '运行不存在或已过期。'
+            : status === 409
+              ? '幂等键冲突，请刷新后重试。'
+              : status === 410
+                ? '事件游标已过期，请刷新运行详情。'
+                : '运行请求失败，请重试。',
     )
   }
+}
+
+/** getRandomValues also works on HTTP origins; this key is an opaque request identifier. */
+export function createRunKey(): string {
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
 async function request<T>(
@@ -34,9 +43,10 @@ async function request<T>(
 ): Promise<T> {
   const token = getAccessToken()
   if (!token) throw new RunRequestError(401)
-  let response: Response
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 20000)
   try {
-    response = await fetch(`${API_URL}/api/v1${path}`, {
+    const response = await fetch(`${API_URL}/api/v1${path}`, {
       method,
       headers: {
         Authorization: `Bearer ${token}`,
@@ -45,13 +55,17 @@ async function request<T>(
       },
       cache: 'no-store',
       redirect: 'error',
+      signal: controller.signal,
       body: body === undefined ? undefined : JSON.stringify(body),
     })
-  } catch {
+    if (!response.ok) throw new RunRequestError(response.status)
+    return (await response.json()) as T
+  } catch (cause) {
+    if (cause instanceof RunRequestError) throw cause
     throw new RunRequestError(0)
+  } finally {
+    clearTimeout(timeout)
   }
-  if (!response.ok) throw new RunRequestError(response.status)
-  return response.json() as Promise<T>
 }
 
 export const agentRunsApi = {
@@ -68,7 +82,7 @@ export const agentRunsApi = {
     request<RunEventPage>(`/runs/${encodeURIComponent(id)}/events?after=${after}&limit=128`),
   cancel: (id: string) => request<RunDetail>(`/runs/${encodeURIComponent(id)}/cancel`, 'POST'),
   rerun: (id: string, body: RunRerun) =>
-    request<RunSummary>(`/runs/${encodeURIComponent(id)}/rerun`, 'POST', body, crypto.randomUUID()),
+    request<RunSummary>(`/runs/${encodeURIComponent(id)}/rerun`, 'POST', body, createRunKey()),
 }
 
 const pause = (milliseconds: number, signal: AbortSignal) =>
