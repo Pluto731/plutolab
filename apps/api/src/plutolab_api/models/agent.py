@@ -24,7 +24,10 @@ class Agent(Base):
         ),
         CheckConstraint("provider = 'openai' AND model = 'gpt-4o-mini'", name="model_catalog"),
         CheckConstraint(
-            "tools IN ('[]'::jsonb, '[\"search_notes\"]'::jsonb)", name="registered_tools"
+            "tools IN ('[]'::jsonb, '[\"search_notes\"]'::jsonb, '[\"search_github\"]'::jsonb, "
+            '\'["search_notes", "search_github"]\'::jsonb, '
+            '\'["search_github", "search_notes"]\'::jsonb)',
+            name="registered_tools",
         ),
     )
 

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Activity, Check, CircleAlert, Clock3, RefreshCw, Workflow } from 'lucide-react'
 import { agentRunsApi, RunRequestError, streamRunEvents } from '@/lib/agent-runs'
 import { Phase6Navigation } from './phase6-navigation'
+import { SaveRunNote } from './save-run-note'
 import type { RunDetail, RunEvent, RunSummary } from '../../../../../packages/types/src/agent-run'
 import type { RunState } from '../../../../../packages/types/src/agent'
 
@@ -482,6 +483,13 @@ export function RunMonitor({ initialRunId }: { initialRunId?: string }) {
                                   {node.output}
                                 </pre>
                               </details>
+                            )}
+                            {node?.state === 'succeeded' && node.output && (
+                              <SaveRunNote
+                                key={`${detail.id}:${nodeId}`}
+                                title={`${definition?.label || nodeId} · 运行结果`}
+                                output={node.output}
+                              />
                             )}
                           </div>
                         )

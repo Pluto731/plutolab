@@ -520,7 +520,7 @@ export function WorkflowEditor() {
               <div>
                 <h3 className="font-semibold">运行已保存的版本</h3>
                 <p className="mt-1 text-sm text-violet-200">
-                  当前支持整理输入和只读笔记检索；GitHub 联网查询与自动写入笔记尚未接入。
+                  工具由所选 Agent 决定；GitHub 调研请使用专用模板。运行结果可手动保存为笔记。
                 </p>
                 <p className="text-sm text-zinc-300">
                   使用 v{current.version}；未保存的修改不会进入本次运行。Run 会先进入队列。

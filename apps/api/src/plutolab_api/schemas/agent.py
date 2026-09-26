@@ -15,7 +15,7 @@ NodeId = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[a-zA-Z0-9
 
 # Local compatibility catalog, based on the existing chat adapter, not a live model listing.
 MODEL_CATALOG: dict[str, tuple[str, ...]] = {"openai": ("gpt-4o-mini",)}
-TOOL_IDS: frozenset[str] = frozenset({"search_notes"})
+TOOL_IDS: frozenset[str] = frozenset({"search_notes", "search_github"})
 
 
 class Contract(BaseModel):

@@ -13,7 +13,7 @@ export interface AgentCreate {
   role_prompt: string
   provider?: 'openai'
   model: 'gpt-4o-mini'
-  tools?: 'search_notes'[]
+  tools?: ('search_notes' | 'search_github')[]
 }
 
 export interface AgentReplace extends AgentCreate {

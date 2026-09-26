@@ -267,13 +267,38 @@ export function AgentEditor() {
                 type="checkbox"
                 checked={draft.tools?.includes('search_notes') ?? false}
                 onChange={(e) =>
-                  setDraft({ ...draft, tools: e.target.checked ? ['search_notes'] : [] })
+                  setDraft({
+                    ...draft,
+                    tools: e.target.checked
+                      ? [...(draft.tools ?? []), 'search_notes']
+                      : draft.tools?.filter((tool) => tool !== 'search_notes'),
+                  })
                 }
               />
               <span>
                 <span className="block font-medium">搜索本人笔记</span>
                 <span className="mt-0.5 block text-xs text-muted-foreground">
                   只读工具，不会修改或删除内容
+                </span>
+              </span>
+            </label>
+            <label className="flex items-center gap-3 rounded-xl bg-sky-500/[0.06] px-4 py-3 text-sm sm:col-span-2">
+              <input
+                type="checkbox"
+                checked={draft.tools?.includes('search_github') ?? false}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    tools: e.target.checked
+                      ? [...(draft.tools ?? []), 'search_github']
+                      : draft.tools?.filter((tool) => tool !== 'search_github'),
+                  })
+                }
+              />
+              <span>
+                <span className="block font-medium">检索 GitHub 新项目</span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  关键词会发送至 GitHub；按当前 Star 排序，非历史涨星榜
                 </span>
               </span>
             </label>

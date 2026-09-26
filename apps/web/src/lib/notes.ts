@@ -66,14 +66,15 @@ export async function getNote(id: string): Promise<NotePublic> {
   return data as NotePublic;
 }
 
-export async function createNote(body: {
-  title: string;
-  content?: string;
-}): Promise<NotePublic> {
+export async function createNote(
+  body: { title: string; content?: string },
+  signal?: AbortSignal,
+): Promise<NotePublic> {
   const res = await fetch(`${API_URL}/api/v1/notes`, {
     method: "POST",
     headers: authHeaders(),
     body: JSON.stringify(body),
+    signal,
   });
   const data: unknown = await res.json().catch(() => null);
   if (!res.ok) throw new Error(detailMessage(data, "创建失败"));
